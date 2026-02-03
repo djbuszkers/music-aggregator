@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(export NVM_DIR=\"$HOME/.nvm\")",
+      "Bash([ -s \"$NVM_DIR/nvm.sh\" ])",
+      "Bash(. \"$NVM_DIR/nvm.sh\")",
+      "Bash(nvm use:*)",
+      "Bash(npm install)",
+      "Bash(npm install:*)",
+      "Bash(npm run build:*)",
+      "Bash(timeout 15 npm run dev:*)",
+      "Bash(npm run dev)",
+      "Bash(curl:*)",
+      "WebFetch(domain:daily.bandcamp.com)",
+      "Bash(xxd:*)",
+      "Bash(node:*)",
+      "WebFetch(domain:ra.co)",
+      "Bash(python3:*)",
+      "WebFetch(domain:boomkat.com)",
+      "Bash(sqlite3:*)",
+      "Bash(npm run lint:*)",
+      "Bash(npx tsc:*)"
+    ]
+  }
+}
