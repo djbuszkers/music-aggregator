@@ -27,7 +27,8 @@ export async function POST() {
     let withScores = 0;
 
     // Update database with results
-    for (const [releaseId, result] of results) {
+    const entries = Array.from(results.entries());
+    for (const [releaseId, result] of entries) {
       await updateReleaseAOTY(
         releaseId,
         result.criticScore,
