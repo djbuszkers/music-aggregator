@@ -1,5 +1,6 @@
 import * as cheerio from "cheerio";
 import { getSourceByName, insertRelease, updateSourceLastFetched } from "../db";
+import { normalizeGenre } from "../utils";
 import type { ReleaseInput } from "../types";
 
 const BASE_URL = "https://daily.bandcamp.com";
@@ -126,24 +127,22 @@ export async function scrapeBandcamp(): Promise<number> {
 
   // Now fetch genre and description from each individual page
   for (const release of releases) {
-    const { genre, description } = await fetchPageData(release.reviewUrl);
-
-    // Build review snippet with genre and description
-    let reviewSnippet: string | null = null;
-    if (genre || description) {
-      const parts: string[] = [];
-      if (genre) parts.push(`Genre: ${genre}`);
-      if (description) parts.push(description);
-      reviewSnippet = parts.join("\n\n");
+    // Only include 2026 items
+    if (!release.publishedAt.startsWith("2026")) {
+      console.log(`Skipping (not 2026): ${release.artist} - ${release.title} (${release.publishedAt.substring(0, 10)})`);
+      continue;
     }
+
+    const { genre, description } = await fetchPageData(release.reviewUrl);
 
     const releaseInput: ReleaseInput = {
       source_id: source.id,
       artist: release.artist,
       title: release.title,
+      genre: normalizeGenre(genre),
       cover_image: release.coverImage,
       review_url: release.reviewUrl,
-      review_snippet: reviewSnippet,
+      review_snippet: description || null,
       published_at: release.publishedAt,
     };
 

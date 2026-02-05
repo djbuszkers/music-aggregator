@@ -19,7 +19,11 @@
       "WebFetch(domain:boomkat.com)",
       "Bash(sqlite3:*)",
       "Bash(npm run lint:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(npm rebuild)",
+      "WebFetch(domain:inverted-audio.com)",
+      "Bash(npx tsx:*)",
+      "Bash(perl -e:*)"
     ]
   }
 }

@@ -1,5 +1,6 @@
 import puppeteer from "puppeteer";
 import { getSourceByName, insertRelease, updateSourceLastFetched } from "../db";
+import { normalizeGenre } from "../utils";
 import type { ReleaseInput } from "../types";
 
 const BASE_URL = "https://ra.co";
@@ -13,7 +14,7 @@ function parseRADate(dateText: string | null): string {
     jan: "Jan", feb: "Feb", mar: "Mar", apr: "Apr", may: "May", jun: "Jun",
     jul: "Jul", aug: "Aug", sep: "Sep", oct: "Oct", nov: "Nov", dec: "Dec",
     // Polish
-    sty: "Jan", lut: "Feb", mar: "Mar", kwi: "Apr", maj: "May", cze: "Jun",
+    sty: "Jan", lut: "Feb", mrz: "Mar", kwi: "Apr", maj: "May", cze: "Jun",
     lip: "Jul", sie: "Aug", wrz: "Sep", paz: "Oct", lis: "Nov", gru: "Dec",
   };
 
@@ -127,7 +128,7 @@ export async function scrapeRA(): Promise<number> {
           href,
           label,
           artistTitle: text,
-          snippet: snippet.substring(0, 200),
+          snippet: snippet.substring(0, 650),
           coverImage,
         });
       });
@@ -154,10 +155,11 @@ export async function scrapeRA(): Promise<number> {
         ? review.href
         : `${BASE_URL}${review.href}`;
 
-      // Visit individual review page to get date, genres, and description
+      // Visit individual review page to get date, genres, description, and cover image
       let dateText: string | null = null;
       let genres: string | null = null;
       let description: string | null = null;
+      let coverImage: string | null = null;
       try {
         await page.goto(reviewUrl, { waitUntil: "networkidle2", timeout: 30000 });
         await new Promise((r) => setTimeout(r, 1000));
@@ -165,6 +167,9 @@ export async function scrapeRA(): Promise<number> {
         const pageData = await page.evaluate(() => {
           const text = document.body.innerText;
           const dateMatch = text.match(/(\d{1,2}\s+[A-Za-z]{3}\s+\d{4})/);
+
+          // Extract og:image
+          const ogImage = document.querySelector('meta[property="og:image"]')?.getAttribute("content") || null;
 
           // Extract genres - look for links to /reviews/singles?genre=XXX
           const genreLinks = Array.from(document.querySelectorAll('a[href*="genre="]'));
@@ -189,12 +194,14 @@ export async function scrapeRA(): Promise<number> {
             date: dateMatch ? dateMatch[1] : null,
             genres: genreTexts.length > 0 ? genreTexts.join("; ") : null,
             description: desc,
+            coverImage: ogImage,
           };
         });
 
         dateText = pageData.date;
         genres = pageData.genres;
         description = pageData.description;
+        coverImage = pageData.coverImage;
       } catch (err) {
         console.log(`Failed to fetch data for ${artist} - ${title}`);
       }
@@ -205,23 +212,15 @@ export async function scrapeRA(): Promise<number> {
         continue;
       }
 
-      // Build review snippet with genres and description
-      let reviewSnippet: string | null = null;
-      if (genres || description) {
-        const parts: string[] = [];
-        if (genres) parts.push(`Genre: ${genres}`);
-        if (description) parts.push(description);
-        reviewSnippet = parts.join("\n\n");
-      }
-
       const release: ReleaseInput = {
         source_id: source.id,
         artist,
         title,
         label: review.label || null,
-        cover_image: review.coverImage,
+        genre: normalizeGenre(genres),
+        cover_image: coverImage || review.coverImage,
         review_url: reviewUrl,
-        review_snippet: reviewSnippet,
+        review_snippet: description || null,
         published_at: parseRADate(dateText),
       };
 

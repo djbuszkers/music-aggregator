@@ -3,7 +3,7 @@ import { scrapeNowaMuzyka } from "@/lib/scrapers/nowamuzyka";
 import { scrapeBandcamp } from "@/lib/scrapers/bandcamp";
 import { scrapeRA } from "@/lib/scrapers/ra";
 import { scrapeBoomkat } from "@/lib/scrapers/boomkat";
-import { scrapePassionWeiss } from "@/lib/scrapers/passion-weiss";
+import { scrapeInvertedAudio } from "@/lib/scrapers/inverted-audio";
 
 export async function POST() {
   try {
@@ -14,7 +14,7 @@ export async function POST() {
       bandcamp: 0,
       residentAdvisor: 0,
       boomkat: 0,
-      passionWeiss: 0,
+      invertedAudio: 0,
       total: 0,
     };
 
@@ -46,14 +46,14 @@ export async function POST() {
       console.error("Error scraping Boomkat:", error);
     }
 
-    // Scrape Passion of the Weiss
+    // Scrape Inverted Audio
     try {
-      results.passionWeiss = await scrapePassionWeiss();
+      results.invertedAudio = await scrapeInvertedAudio();
     } catch (error) {
-      console.error("Error scraping Passion of the Weiss:", error);
+      console.error("Error scraping Inverted Audio:", error);
     }
 
-    results.total = results.nowaMuzyka + results.bandcamp + results.residentAdvisor + results.boomkat + results.passionWeiss;
+    results.total = results.nowaMuzyka + results.bandcamp + results.residentAdvisor + results.boomkat + results.invertedAudio;
 
     return NextResponse.json({
       success: true,

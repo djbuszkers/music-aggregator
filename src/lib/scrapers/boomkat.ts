@@ -1,5 +1,6 @@
 import puppeteer from "puppeteer";
 import { getSourceByName, insertRelease, updateSourceLastFetched } from "../db";
+import { normalizeGenre } from "../utils";
 import type { ReleaseInput } from "../types";
 
 const BASE_URL = "https://boomkat.com";
@@ -194,10 +195,11 @@ export async function scrapeBoomkat(): Promise<number> {
         ? release.href
         : `${BASE_URL}${release.href}`;
 
-      // Visit individual product page to get date, genre, and description
+      // Visit individual product page to get date, genre, description, and cover image
       let dateText: string | null = null;
       let genre: string | null = null;
       let description: string | null = null;
+      let coverImage: string | null = null;
       try {
         await page.goto(reviewUrl, { waitUntil: "networkidle2", timeout: 30000 });
         await new Promise((r) => setTimeout(r, 1000));
@@ -206,6 +208,19 @@ export async function scrapeBoomkat(): Promise<number> {
           const text = document.body.innerText;
           // Look for "Release date: DD Month YYYY" pattern
           const dateMatch = text.match(/Release date:\s*(\d{1,2}\s+[A-Za-z]+\s+\d{4})/i);
+
+          // Extract og:image or product image
+          let coverImg: string | null = null;
+          const ogImage = document.querySelector('meta[property="og:image"]')?.getAttribute("content");
+          if (ogImage) {
+            coverImg = ogImage;
+          } else {
+            // Try to find main product image
+            const productImg = document.querySelector('.product-main-image img, .product-image img, img[data-zoom-image]');
+            if (productImg) {
+              coverImg = productImg.getAttribute("data-zoom-image") || productImg.getAttribute("src") || null;
+            }
+          }
 
           // Extract genre - look for links to /genre/* pages
           const genreLinks = Array.from(document.querySelectorAll('a[href*="/genre/"]'));
@@ -230,12 +245,14 @@ export async function scrapeBoomkat(): Promise<number> {
             date: dateMatch ? dateMatch[1] : null,
             genre: genres.length > 0 ? genres.join("; ") : null,
             description: description,
+            coverImage: coverImg,
           };
         });
 
         dateText = pageData.date;
         genre = pageData.genre;
         description = pageData.description;
+        coverImage = pageData.coverImage;
       } catch (err) {
         console.log(`Failed to fetch data for ${release.artist} - ${release.title}`);
       }
@@ -246,23 +263,15 @@ export async function scrapeBoomkat(): Promise<number> {
         continue;
       }
 
-      // Build review snippet with genre and description
-      let reviewSnippet: string | null = null;
-      if (genre || description) {
-        const parts: string[] = [];
-        if (genre) parts.push(`Genre: ${genre}`);
-        if (description) parts.push(description);
-        reviewSnippet = parts.join("\n\n");
-      }
-
       const releaseInput: ReleaseInput = {
         source_id: source.id,
         artist: release.artist,
         title: release.title,
         label: release.label,
-        cover_image: release.coverImage,
+        genre: normalizeGenre(genre),
+        cover_image: coverImage || release.coverImage,
         review_url: reviewUrl,
-        review_snippet: reviewSnippet,
+        review_snippet: description || null,
         published_at: parseBoomkatDate(dateText),
       };
 

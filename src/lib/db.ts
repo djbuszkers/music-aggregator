@@ -58,7 +58,7 @@ function initDb(database: Database.Database): void {
 
   insertSource.run("Nowa Muzyka", "https://www.nowamuzyka.pl/feed/", "rss");
   insertSource.run("Bandcamp Daily", "https://daily.bandcamp.com/album-of-the-day", "cheerio");
-  insertSource.run("Passion of the Weiss", "https://www.passionweiss.com/feed/", "rss");
+  insertSource.run("Inverted Audio", "https://inverted-audio.com/review/", "cheerio");
 
   // Update Bandcamp URL if it was previously set to the RSS feed
   database.prepare(`
@@ -71,6 +71,20 @@ function initDb(database: Database.Database): void {
   database.prepare(`
     UPDATE sources SET url = ? WHERE name = ?
   `).run("https://boomkat.com/weekly-roundup", "Boomkat");
+
+  // Add AOTY columns if they don't exist
+  const columns = database.prepare("PRAGMA table_info(releases)").all() as { name: string }[];
+  const columnNames = columns.map(c => c.name);
+
+  if (!columnNames.includes("aoty_critic_score")) {
+    database.exec("ALTER TABLE releases ADD COLUMN aoty_critic_score REAL");
+  }
+  if (!columnNames.includes("aoty_user_score")) {
+    database.exec("ALTER TABLE releases ADD COLUMN aoty_user_score REAL");
+  }
+  if (!columnNames.includes("aoty_url")) {
+    database.exec("ALTER TABLE releases ADD COLUMN aoty_url TEXT");
+  }
 }
 
 export function getSources(): Source[] {
@@ -88,37 +102,87 @@ export function updateSourceLastFetched(sourceId: number): void {
   db.prepare("UPDATE sources SET last_fetched = CURRENT_TIMESTAMP WHERE id = ?").run(sourceId);
 }
 
-export function getReleases(sourceId?: number, limit = 50): Release[] {
+export function getReleases(sourceId?: number, limit = 15, offset = 0, genre?: string): Release[] {
   const db = getDb();
   let query = `
     SELECT r.*, s.name as source_name
     FROM releases r
     JOIN sources s ON r.source_id = s.id
+    WHERE r.published_at >= '2026-01-01'
   `;
   const params: (number | string)[] = [];
 
   if (sourceId) {
-    query += " WHERE r.source_id = ?";
+    query += " AND r.source_id = ?";
     params.push(sourceId);
   }
 
-  query += " ORDER BY r.published_at DESC LIMIT ?";
-  params.push(limit);
+  if (genre) {
+    query += " AND r.genre LIKE ?";
+    params.push(`%${genre}%`);
+  }
+
+  query += " ORDER BY r.published_at DESC LIMIT ? OFFSET ?";
+  params.push(limit, offset);
 
   return db.prepare(query).all(...params) as Release[];
+}
+
+export function getTotalReleases(sourceId?: number, genre?: string): number {
+  const db = getDb();
+  let query = `
+    SELECT COUNT(*) as count
+    FROM releases r
+    WHERE r.published_at >= '2026-01-01'
+  `;
+  const params: (number | string)[] = [];
+
+  if (sourceId) {
+    query += " AND r.source_id = ?";
+    params.push(sourceId);
+  }
+
+  if (genre) {
+    query += " AND r.genre LIKE ?";
+    params.push(`%${genre}%`);
+  }
+
+  const result = db.prepare(query).get(...params) as { count: number };
+  return result.count;
+}
+
+export function getDistinctGenres(): string[] {
+  const db = getDb();
+  const results = db.prepare(`
+    SELECT DISTINCT genre FROM releases
+    WHERE genre IS NOT NULL AND published_at >= '2026-01-01'
+    ORDER BY genre
+  `).all() as { genre: string }[];
+
+  // Extract individual genres from comma-separated values
+  const genreSet = new Set<string>();
+  for (const row of results) {
+    const genres = row.genre.split(", ");
+    for (const g of genres) {
+      genreSet.add(g.trim());
+    }
+  }
+
+  return Array.from(genreSet).sort();
 }
 
 export function insertRelease(release: ReleaseInput): boolean {
   const db = getDb();
   try {
     db.prepare(`
-      INSERT INTO releases (source_id, artist, title, label, cover_image, review_url, review_snippet, published_at, raw_data)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO releases (source_id, artist, title, label, genre, cover_image, review_url, review_snippet, published_at, raw_data)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       release.source_id,
       release.artist,
       release.title,
       release.label ?? null,
+      release.genre ?? null,
       release.cover_image ?? null,
       release.review_url,
       release.review_snippet ?? null,
@@ -139,4 +203,30 @@ export function getLastUpdated(): string | null {
   const db = getDb();
   const result = db.prepare("SELECT MAX(scraped_at) as last_updated FROM releases").get() as { last_updated: string | null };
   return result?.last_updated ?? null;
+}
+
+export function updateReleaseAOTY(
+  releaseId: number,
+  criticScore: number | null,
+  userScore: number | null,
+  aotyUrl: string
+): void {
+  const db = getDb();
+  db.prepare(`
+    UPDATE releases
+    SET aoty_critic_score = ?, aoty_user_score = ?, aoty_url = ?
+    WHERE id = ?
+  `).run(criticScore, userScore, aotyUrl, releaseId);
+}
+
+export function getReleasesWithoutAOTY(limit = 10): Release[] {
+  const db = getDb();
+  return db.prepare(`
+    SELECT r.*, s.name as source_name
+    FROM releases r
+    JOIN sources s ON r.source_id = s.id
+    WHERE r.aoty_url IS NULL
+    ORDER BY r.published_at DESC
+    LIMIT ?
+  `).all(limit) as Release[];
 }

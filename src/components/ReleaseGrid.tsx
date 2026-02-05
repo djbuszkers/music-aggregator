@@ -8,7 +8,7 @@ interface ReleaseGridProps {
 }
 
 export function ReleaseGrid({ releases }: ReleaseGridProps) {
-  if (releases.length === 0) {
+  if (!releases || releases.length === 0) {
     return (
       <div className="text-center py-12">
         <p className="text-zinc-500">No releases yet. Click refresh to fetch reviews.</p>

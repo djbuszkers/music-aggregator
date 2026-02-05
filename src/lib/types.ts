@@ -13,6 +13,7 @@ export interface Release {
   artist: string;
   title: string;
   label: string | null;
+  genre: string | null;
   cover_image: string | null;
   review_url: string;
   review_snippet: string | null;
@@ -20,6 +21,9 @@ export interface Release {
   scraped_at: string;
   raw_data: string | null;
   source_name?: string;
+  aoty_critic_score: number | null;
+  aoty_user_score: number | null;
+  aoty_url: string | null;
 }
 
 export interface ReleaseInput {
@@ -27,6 +31,7 @@ export interface ReleaseInput {
   artist: string;
   title: string;
   label?: string | null;
+  genre?: string | null;
   cover_image?: string | null;
   review_url: string;
   review_snippet?: string | null;

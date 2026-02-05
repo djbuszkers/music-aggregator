@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getReleases, getSources, getLastUpdated } from "@/lib/db";
+import { getReleases, getSources, getLastUpdated, getTotalReleases, getDistinctGenres } from "@/lib/db";
+
+const PAGE_SIZE = 15;
 
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const sourceParam = searchParams.get("source");
-    const limitParam = searchParams.get("limit");
+    const pageParam = searchParams.get("page");
+    const genreParam = searchParams.get("genre");
 
     let sourceId: number | undefined;
 
@@ -19,14 +22,26 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const limit = limitParam ? parseInt(limitParam, 10) : 50;
-    const releases = getReleases(sourceId, limit);
+    const page = pageParam ? Math.max(1, parseInt(pageParam, 10)) : 1;
+    const offset = (page - 1) * PAGE_SIZE;
+    const genre = genreParam || undefined;
+
+    const releases = getReleases(sourceId, PAGE_SIZE, offset, genre);
+    const totalCount = getTotalReleases(sourceId, genre);
+    const totalPages = Math.ceil(totalCount / PAGE_SIZE);
     const lastUpdated = getLastUpdated();
+    const genres = getDistinctGenres();
 
     return NextResponse.json({
       releases,
       lastUpdated,
-      count: releases.length,
+      genres,
+      pagination: {
+        page,
+        pageSize: PAGE_SIZE,
+        totalCount,
+        totalPages,
+      },
     });
   } catch (error) {
     console.error("Error fetching releases:", error);
