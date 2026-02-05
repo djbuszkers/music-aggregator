@@ -33,7 +33,7 @@ function parseRADate(dateText: string | null): string {
 }
 
 export async function scrapeRA(): Promise<number> {
-  const source = getSourceByName("Resident Advisor");
+  const source = await getSourceByName("Resident Advisor");
   if (!source) {
     console.error("Resident Advisor source not found in database");
     return 0;
@@ -224,7 +224,7 @@ export async function scrapeRA(): Promise<number> {
         published_at: parseRADate(dateText),
       };
 
-      const inserted = insertRelease(release);
+      const inserted = await insertRelease(release);
       if (inserted) {
         newCount++;
         console.log(`Added: ${artist} - ${title} (${genres || "no genre"})`);
@@ -234,7 +234,7 @@ export async function scrapeRA(): Promise<number> {
       await new Promise((r) => setTimeout(r, 500));
     }
 
-    updateSourceLastFetched(source.id);
+    await updateSourceLastFetched(source.id);
     console.log(`Resident Advisor: ${newCount} new releases added`);
 
     return newCount;

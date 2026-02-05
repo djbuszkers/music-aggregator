@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     let sourceId: number | undefined;
 
     if (sourceParam) {
-      const sources = getSources();
+      const sources = await getSources();
       const source = sources.find(
         (s) => s.name.toLowerCase() === sourceParam.toLowerCase()
       );
@@ -26,11 +26,11 @@ export async function GET(request: NextRequest) {
     const offset = (page - 1) * PAGE_SIZE;
     const genre = genreParam || undefined;
 
-    const releases = getReleases(sourceId, PAGE_SIZE, offset, genre);
-    const totalCount = getTotalReleases(sourceId, genre);
+    const releases = await getReleases(sourceId, PAGE_SIZE, offset, genre);
+    const totalCount = await getTotalReleases(sourceId, genre);
     const totalPages = Math.ceil(totalCount / PAGE_SIZE);
-    const lastUpdated = getLastUpdated();
-    const genres = getDistinctGenres();
+    const lastUpdated = await getLastUpdated();
+    const genres = await getDistinctGenres();
 
     return NextResponse.json({
       releases,

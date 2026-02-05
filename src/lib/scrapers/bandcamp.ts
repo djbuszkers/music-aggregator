@@ -69,7 +69,7 @@ async function fetchPageData(url: string): Promise<{ genre: string | null; descr
 }
 
 export async function scrapeBandcamp(): Promise<number> {
-  const source = getSourceByName("Bandcamp Daily");
+  const source = await getSourceByName("Bandcamp Daily");
   if (!source) {
     console.error("Bandcamp Daily source not found in database");
     return 0;
@@ -146,7 +146,7 @@ export async function scrapeBandcamp(): Promise<number> {
       published_at: release.publishedAt,
     };
 
-    const inserted = insertRelease(releaseInput);
+    const inserted = await insertRelease(releaseInput);
     if (inserted) {
       newCount++;
       console.log(`Added: ${release.artist} - ${release.title} (${genre || "no genre"})`);
@@ -156,7 +156,7 @@ export async function scrapeBandcamp(): Promise<number> {
     await new Promise((r) => setTimeout(r, 300));
   }
 
-  updateSourceLastFetched(source.id);
+  await updateSourceLastFetched(source.id);
   console.log(`Bandcamp Daily: ${newCount} new releases added`);
 
   return newCount;

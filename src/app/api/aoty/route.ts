@@ -7,7 +7,7 @@ export async function POST() {
     console.log("Starting AOTY lookup...");
 
     // Get releases that need AOTY data (batch of 10)
-    const releases = getReleasesWithoutAOTY(10);
+    const releases = await getReleasesWithoutAOTY(10);
 
     if (releases.length === 0) {
       return NextResponse.json({
@@ -27,8 +27,8 @@ export async function POST() {
     let withScores = 0;
 
     // Update database with results
-    results.forEach((result, releaseId) => {
-      updateReleaseAOTY(
+    for (const [releaseId, result] of results) {
+      await updateReleaseAOTY(
         releaseId,
         result.criticScore,
         result.userScore,
@@ -41,7 +41,7 @@ export async function POST() {
       } else if (result.criticScore !== null || result.userScore !== null) {
         withScores++;
       }
-    });
+    }
 
     return NextResponse.json({
       success: true,

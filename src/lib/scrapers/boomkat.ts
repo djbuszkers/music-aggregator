@@ -21,7 +21,7 @@ function parseBoomkatDate(dateText: string | null): string {
 }
 
 export async function scrapeBoomkat(): Promise<number> {
-  const source = getSourceByName("Boomkat");
+  const source = await getSourceByName("Boomkat");
   if (!source) {
     console.error("Boomkat source not found in database");
     return 0;
@@ -275,7 +275,7 @@ export async function scrapeBoomkat(): Promise<number> {
         published_at: parseBoomkatDate(dateText),
       };
 
-      const inserted = insertRelease(releaseInput);
+      const inserted = await insertRelease(releaseInput);
       if (inserted) {
         newCount++;
         console.log(`Added: ${release.artist} - ${release.title} (${genre || "no genre"})`);
@@ -285,7 +285,7 @@ export async function scrapeBoomkat(): Promise<number> {
       await new Promise((r) => setTimeout(r, 500));
     }
 
-    updateSourceLastFetched(source.id);
+    await updateSourceLastFetched(source.id);
     console.log(`Boomkat: ${newCount} new releases added`);
 
     return newCount;

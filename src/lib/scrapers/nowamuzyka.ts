@@ -145,7 +145,7 @@ function extractSnippet(content: string): string | null {
 }
 
 export async function scrapeNowaMuzyka(): Promise<number> {
-  const source = getSourceByName("Nowa Muzyka");
+  const source = await getSourceByName("Nowa Muzyka");
   if (!source) {
     console.error("Nowa Muzyka source not found in database");
     return 0;
@@ -199,7 +199,7 @@ export async function scrapeNowaMuzyka(): Promise<number> {
       raw_data: JSON.stringify(item),
     };
 
-    const inserted = insertRelease(release);
+    const inserted = await insertRelease(release);
     if (inserted) {
       newCount++;
       console.log(`Added: ${artist} - ${title} (${genre || "no genre"})`);
@@ -209,7 +209,7 @@ export async function scrapeNowaMuzyka(): Promise<number> {
     await new Promise(r => setTimeout(r, 500));
   }
 
-  updateSourceLastFetched(source.id);
+  await updateSourceLastFetched(source.id);
   console.log(`Nowa Muzyka: ${newCount} new releases added`);
 
   return newCount;

@@ -123,7 +123,7 @@ async function scrapeReviewDetails(url: string): Promise<ReviewDetails> {
 }
 
 export async function scrapeInvertedAudio(): Promise<number> {
-  const source = getSourceByName("Inverted Audio");
+  const source = await getSourceByName("Inverted Audio");
   if (!source) {
     console.error("Inverted Audio source not found in database");
     return 0;
@@ -170,7 +170,7 @@ export async function scrapeInvertedAudio(): Promise<number> {
       published_at: publishedAt,
     };
 
-    const inserted = insertRelease(release);
+    const inserted = await insertRelease(release);
     if (inserted) {
       newCount++;
       console.log(`Added: ${artist} - ${title} (${details.genres.join(", ") || "no genre"})`);
@@ -180,7 +180,7 @@ export async function scrapeInvertedAudio(): Promise<number> {
     await new Promise(r => setTimeout(r, 300));
   }
 
-  updateSourceLastFetched(source.id);
+  await updateSourceLastFetched(source.id);
   console.log(`Inverted Audio: ${newCount} new releases added`);
 
   return newCount;
