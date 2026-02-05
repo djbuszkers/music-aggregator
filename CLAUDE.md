@@ -4,9 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Music aggregator website for a DJ/radio host. Aggregates album reviews from 4 curated sources into a unified feed with personal curation layer.
+Music aggregator website for a DJ/radio host. Aggregates album reviews from 5 curated sources into a unified feed with AOTY (Album of the Year) ratings integration.
 
-**Tech Stack:** Next.js 14+ (App Router), TypeScript, Tailwind CSS, SQLite (better-sqlite3), deployed on Vercel.
+**Tech Stack:** Next.js 14.2 (App Router), TypeScript, Tailwind CSS, Turso (libSQL) for database, deployed on Vercel with cron jobs.
+
+**Live URL:** https://muzyczka.vercel.app
 
 ## Build Commands
 
@@ -21,51 +23,101 @@ npm run start
 # Linting
 npm run lint
 
-# Initial setup (if starting fresh)
-npx create-next-app@latest music-aggregator --typescript --tailwind --app --src-dir
-npm install better-sqlite3 rss-parser cheerio
-npm install -D @types/better-sqlite3
+# Trigger manual refresh (fetches new releases)
+curl -X POST http://localhost:3000/api/refresh
 
-# Headless browser (Phase 3+)
-npm install puppeteer  # or playwright
+# Trigger AOTY lookup (adds ratings to releases)
+curl -X POST http://localhost:3000/api/aoty
+```
+
+## Environment Variables
+
+Required in `.env.local` (local) and Vercel dashboard (production):
+
+```
+TURSO_DATABASE_URL=libsql://music-aggregator-djbuszkers.aws-eu-west-1.turso.io
+TURSO_AUTH_TOKEN=<token>
 ```
 
 ## Architecture
 
-### Data Sources (in order of scraping difficulty)
+### Data Sources
 
-1. **Nowa Muzyka** (Polish) - RSS feed at `https://www.nowamuzyka.pl/feed/`
-2. **Bandcamp Daily** - Open RSS or HTML scraping with Cheerio
-3. **Resident Advisor** - JavaScript-rendered, requires headless browser
-4. **Boomkat Weekly** - Blocks direct requests (403), requires headless browser
+1. **Nowa Muzyka** (Polish) - RSS feed, genres fetched from linked Bandcamp pages
+2. **Bandcamp Daily** - HTML scraping with Cheerio
+3. **Resident Advisor** - JavaScript-rendered, requires Puppeteer
+4. **Boomkat** - JavaScript-rendered, requires Puppeteer
+5. **Inverted Audio** - RSS feed with HTML scraping for details
 
-### Key Directories
+### Key Files
 
-- `src/lib/scrapers/` - One scraper per source (nowamuzyka.ts, bandcamp.ts, ra.ts, boomkat.ts)
-- `src/lib/db.ts` - SQLite connection and queries
-- `src/app/api/refresh/` - Trigger data refresh endpoint
-- `src/app/api/releases/` - Releases API with filtering
+```
+src/
+├── app/
+│   ├── page.tsx              # Main UI with release grid
+│   ├── layout.tsx            # App layout
+│   ├── globals.css           # Tailwind styles
+│   └── api/
+│       ├── releases/route.ts # GET releases with pagination/filtering
+│       ├── refresh/route.ts  # POST triggers all scrapers
+│       └── aoty/route.ts     # POST fetches AOTY ratings
+├── components/
+│   ├── Header.tsx
+│   ├── ReleaseCard.tsx
+│   └── ReleaseGrid.tsx
+└── lib/
+    ├── db.ts                 # Turso database connection (async)
+    ├── types.ts              # TypeScript interfaces
+    ├── utils.ts              # Genre normalization
+    └── scrapers/
+        ├── nowamuzyka.ts
+        ├── bandcamp.ts
+        ├── ra.ts
+        ├── boomkat.ts
+        ├── inverted-audio.ts
+        └── aoty.ts           # AOTY ratings lookup
+```
 
-### Database
+### Database (Turso/libSQL)
 
-SQLite with three tables:
-- `sources` - Source metadata and last fetch timestamps
-- `releases` - Aggregated reviews with artist, title, label, cover image, review URL
-- `dj_picks` - Personal curation layer (future phase)
+All database functions are **async** and auto-initialize tables on first call.
+
+**Tables:**
+- `sources` - Source metadata (name, url, scraper_type, last_fetched)
+- `releases` - Reviews with artist, title, label, genre, cover_image, review_url, review_snippet, published_at, aoty scores
+
+**Key functions in db.ts:**
+- `getSources()` / `getSourceByName(name)`
+- `getReleases(sourceId?, limit, offset, genre?)`
+- `insertRelease(release)` - Returns false if duplicate (UNIQUE constraint on review_url)
+- `getReleasesWithoutAOTY(limit)` - For AOTY batch processing
+
+## Deployment
+
+- **Platform:** Vercel
+- **Git repo:** github.com/djbuszkers/music-aggregator (master branch)
+- **Cron job:** Configured in `vercel.json` - runs `/api/refresh` every 2 days at 8:00 UTC
 
 ## Development Guidelines
 
-- Start with one source working end-to-end before adding others
-- Cache aggressively to avoid hitting sources unnecessarily
-- Store raw scraped data in `raw_data` JSON column for potential re-parsing
-- Add delays between requests to respect rate limits
-- Log scraper activity for debugging
+- All scrapers filter for 2026 releases only (`published_at >= '2026-01-01'`)
+- Scrapers include delays between requests (300-500ms) to respect rate limits
+- Genres are normalized to uppercase, comma-separated format
+- Cover images fetched from og:image or article content
+- Store review snippets (first ~650 chars of review text)
 
-## Implementation Phases
+## Common Tasks
 
-1. Foundation: Next.js setup + SQLite + Nowa Muzyka RSS
-2. Bandcamp Daily scraper
-3. Resident Advisor (headless browser)
-4. Boomkat Weekly (headless browser)
-5. Deploy to Vercel with cron refresh
-6. Personal DJ Picks curation (requires auth)
+**Add a new scraper:**
+1. Create `src/lib/scrapers/newsource.ts`
+2. Add source to `initDb()` in `db.ts`
+3. Import and call in `src/app/api/refresh/route.ts`
+
+**Debug scraper issues:**
+- Check terminal logs during `npm run dev`
+- Scrapers log skipped items (not 2026) and added items
+
+**Test database connection:**
+```bash
+curl http://localhost:3000/api/releases
+```
