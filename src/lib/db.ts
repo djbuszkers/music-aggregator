@@ -186,6 +186,45 @@ export async function getDistinctGenres(): Promise<string[]> {
 export async function insertRelease(release: ReleaseInput): Promise<boolean> {
   await ensureInitialized();
   const database = getDb();
+
+  // Check for cross-source duplicate (same artist + title, case-insensitive)
+  const existing = await database.execute({
+    sql: `SELECT id, review_snippet FROM releases WHERE LOWER(TRIM(artist)) = LOWER(TRIM(?)) AND LOWER(TRIM(title)) = LOWER(TRIM(?))`,
+    args: [release.artist, release.title],
+  });
+
+  if (existing.rows.length > 0) {
+    const existingSnippet = (existing.rows[0].review_snippet as string) ?? "";
+    const newSnippet = release.review_snippet ?? "";
+
+    if (newSnippet.length > existingSnippet.length) {
+      // New review is longer — update the existing row
+      await database.execute({
+        sql: `
+          UPDATE releases SET source_id = ?, artist = ?, title = ?, label = ?, genre = ?, cover_image = ?, review_url = ?, review_snippet = ?, published_at = ?, raw_data = ?
+          WHERE id = ?
+        `,
+        args: [
+          release.source_id,
+          release.artist,
+          release.title,
+          release.label ?? null,
+          release.genre ?? null,
+          release.cover_image ?? null,
+          release.review_url,
+          release.review_snippet ?? null,
+          release.published_at,
+          release.raw_data ?? null,
+          existing.rows[0].id,
+        ],
+      });
+      return true;
+    }
+
+    // Existing snippet is longer or equal — skip
+    return false;
+  }
+
   try {
     await database.execute({
       sql: `
