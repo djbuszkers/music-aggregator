@@ -49,9 +49,6 @@ export async function initDb(): Promise<void> {
       published_at TEXT NOT NULL,
       scraped_at TEXT DEFAULT CURRENT_TIMESTAMP,
       raw_data TEXT,
-      aoty_critic_score REAL,
-      aoty_user_score REAL,
-      aoty_url TEXT,
       FOREIGN KEY (source_id) REFERENCES sources(id)
     )
   `);
@@ -260,36 +257,3 @@ export async function getLastUpdated(): Promise<string | null> {
   return (result.rows[0]?.last_updated as string) ?? null;
 }
 
-export async function updateReleaseAOTY(
-  releaseId: number,
-  criticScore: number | null,
-  userScore: number | null,
-  aotyUrl: string
-): Promise<void> {
-  const database = getDb();
-  await database.execute({
-    sql: `
-      UPDATE releases
-      SET aoty_critic_score = ?, aoty_user_score = ?, aoty_url = ?
-      WHERE id = ?
-    `,
-    args: [criticScore, userScore, aotyUrl, releaseId],
-  });
-}
-
-export async function getReleasesWithoutAOTY(limit = 10): Promise<Release[]> {
-  await ensureInitialized();
-  const database = getDb();
-  const result = await database.execute({
-    sql: `
-      SELECT r.*, s.name as source_name
-      FROM releases r
-      JOIN sources s ON r.source_id = s.id
-      WHERE r.aoty_url IS NULL
-      ORDER BY r.published_at DESC
-      LIMIT ?
-    `,
-    args: [limit],
-  });
-  return result.rows as unknown as Release[];
-}

@@ -21,9 +21,6 @@ export interface Release {
   scraped_at: string;
   raw_data: string | null;
   source_name?: string;
-  aoty_critic_score: number | null;
-  aoty_user_score: number | null;
-  aoty_url: string | null;
 }
 
 export interface ReleaseInput {

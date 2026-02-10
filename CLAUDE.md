@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Music aggregator website for a DJ/radio host. Aggregates album reviews from 5 curated sources into a unified feed with AOTY (Album of the Year) ratings integration.
+Music aggregator website for a DJ/radio host. Aggregates album reviews from 5 curated sources into a unified feed.
 
 **Tech Stack:** Next.js 14.2 (App Router), TypeScript, Tailwind CSS, Turso (libSQL) for database, deployed on Vercel with cron jobs.
 
@@ -25,9 +25,6 @@ npm run lint
 
 # Trigger manual refresh (fetches new releases)
 curl -X POST http://localhost:3000/api/refresh
-
-# Trigger AOTY lookup (adds ratings to releases)
-curl -X POST http://localhost:3000/api/aoty
 ```
 
 ## Environment Variables
@@ -59,8 +56,7 @@ src/
 │   ├── globals.css           # Tailwind styles
 │   └── api/
 │       ├── releases/route.ts # GET releases with pagination/filtering
-│       ├── refresh/route.ts  # POST triggers all scrapers
-│       └── aoty/route.ts     # POST fetches AOTY ratings
+│       └── refresh/route.ts  # POST triggers all scrapers
 ├── components/
 │   ├── Header.tsx
 │   ├── ReleaseCard.tsx
@@ -74,8 +70,7 @@ src/
         ├── bandcamp.ts
         ├── ra.ts
         ├── boomkat.ts
-        ├── inverted-audio.ts
-        └── aoty.ts           # AOTY ratings lookup
+        └── inverted-audio.ts
 ```
 
 ### Database (Turso/libSQL)
@@ -84,13 +79,12 @@ All database functions are **async** and auto-initialize tables on first call.
 
 **Tables:**
 - `sources` - Source metadata (name, url, scraper_type, last_fetched)
-- `releases` - Reviews with artist, title, label, genre, cover_image, review_url, review_snippet, published_at, aoty scores
+- `releases` - Reviews with artist, title, label, genre, cover_image, review_url, review_snippet, published_at
 
 **Key functions in db.ts:**
 - `getSources()` / `getSourceByName(name)`
 - `getReleases(sourceId?, limit, offset, genre?)`
 - `insertRelease(release)` - Deduplicates cross-source releases by artist+title (case-insensitive); keeps the release with the longer review_snippet. Also returns false on same-URL duplicates (UNIQUE constraint on review_url)
-- `getReleasesWithoutAOTY(limit)` - For AOTY batch processing
 
 ## Deployment
 
