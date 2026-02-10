@@ -89,7 +89,7 @@ All database functions are **async** and auto-initialize tables on first call.
 **Key functions in db.ts:**
 - `getSources()` / `getSourceByName(name)`
 - `getReleases(sourceId?, limit, offset, genre?)`
-- `insertRelease(release)` - Returns false if duplicate (UNIQUE constraint on review_url)
+- `insertRelease(release)` - Deduplicates cross-source releases by artist+title (case-insensitive); keeps the release with the longer review_snippet. Also returns false on same-URL duplicates (UNIQUE constraint on review_url)
 - `getReleasesWithoutAOTY(limit)` - For AOTY batch processing
 
 ## Deployment
@@ -105,6 +105,7 @@ All database functions are **async** and auto-initialize tables on first call.
 - Genres are normalized to uppercase, comma-separated format
 - Cover images fetched from og:image or article content
 - Store review snippets (first ~650 chars of review text)
+- Cross-source duplicates are deduplicated by artist+title; the release with the longest review snippet wins
 
 ## Common Tasks
 
