@@ -33,7 +33,7 @@ export function ReleaseCard({ release }: ReleaseCardProps) {
       href={release.review_url}
       target="_blank"
       rel="noopener noreferrer"
-      className="group flex gap-4 py-4 px-4 hover:bg-zinc-900 transition-colors border-b border-zinc-800"
+      className="group flex flex-col sm:flex-row gap-3 sm:gap-4 py-4 px-4 hover:bg-zinc-900 transition-colors border-b border-zinc-800"
     >
       {/* Cover Image */}
       <div className="flex-shrink-0">
@@ -41,10 +41,10 @@ export function ReleaseCard({ release }: ReleaseCardProps) {
           <img
             src={release.cover_image}
             alt={`${release.artist} - ${release.title}`}
-            className="w-[200px] h-[200px] object-cover bg-zinc-800"
+            className="w-full sm:w-[200px] aspect-square sm:h-[200px] object-cover bg-zinc-800"
           />
         ) : (
-          <div className="w-[200px] h-[200px] bg-zinc-800 flex items-center justify-center">
+          <div className="w-full sm:w-[200px] aspect-square sm:h-[200px] bg-zinc-800 flex items-center justify-center">
             <span className="text-zinc-600 text-4xl">♪</span>
           </div>
         )}
@@ -53,7 +53,7 @@ export function ReleaseCard({ release }: ReleaseCardProps) {
       {/* Content */}
       <div className="flex-1 min-w-0 flex flex-col justify-between py-1">
         <div>
-          <div className="flex items-baseline justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1 sm:gap-4">
             <div className="min-w-0 flex-1">
               <span className="font-semibold text-white group-hover:text-zinc-200">
                 {release.artist}
@@ -68,7 +68,7 @@ export function ReleaseCard({ release }: ReleaseCardProps) {
               <span className="px-2 py-0.5 text-xs font-medium bg-zinc-800 text-zinc-400 rounded">
                 {release.source_name}
               </span>
-              <span className="text-xs text-zinc-500 w-20 text-right">{formattedDate}</span>
+              <span className="text-xs text-zinc-500">{formattedDate}</span>
             </div>
           </div>
           <div className="text-sm mt-2">
@@ -97,7 +97,7 @@ export function ReleaseCard({ release }: ReleaseCardProps) {
               </span>
             )}
             {release.review_snippet && (
-              <p className="text-zinc-600 mt-2 line-clamp-5">{release.review_snippet}</p>
+              <p className="text-zinc-600 mt-2 line-clamp-2 sm:line-clamp-5">{release.review_snippet}</p>
             )}
           </div>
         </div>

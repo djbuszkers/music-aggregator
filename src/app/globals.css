@@ -29,3 +29,12 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #52525b;
 }
+
+/* Hide scrollbar for horizontal scroll areas */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

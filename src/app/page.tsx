@@ -80,13 +80,13 @@ export default function Home() {
     <div className="min-h-screen">
       <Header lastUpdated={lastUpdated} onRefresh={handleRefresh} />
 
-      <main className="max-w-7xl mx-auto px-4 py-8">
+      <main className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
         {/* Genre Filter */}
-        <div className="sticky top-[100px] z-40 bg-zinc-950/95 backdrop-blur-sm -mx-4 px-4 py-3 mb-4">
-          <div className="flex flex-wrap gap-1.5">
+        <div className="sticky top-[60px] sm:top-[100px] z-40 bg-zinc-950/95 backdrop-blur-sm -mx-4 px-4 py-3 mb-4">
+          <div className="flex flex-nowrap overflow-x-auto sm:flex-wrap gap-1.5 scrollbar-hide">
             <button
               onClick={() => handleGenreChange(null)}
-              className={`px-2 py-1 text-xs rounded-full transition-colors ${
+              className={`px-3 py-2 sm:px-2 sm:py-1 text-xs rounded-full transition-colors whitespace-nowrap flex-shrink-0 ${
                 selectedGenre === null
                   ? "bg-white text-black font-medium"
                   : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
@@ -98,7 +98,7 @@ export default function Home() {
               <button
                 key={genre}
                 onClick={() => handleGenreChange(genre)}
-                className={`px-2 py-1 text-xs rounded-full transition-colors ${
+                className={`px-3 py-2 sm:px-2 sm:py-1 text-xs rounded-full transition-colors whitespace-nowrap flex-shrink-0 ${
                   selectedGenre === genre
                     ? "bg-white text-black font-medium"
                     : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
@@ -129,7 +129,13 @@ export default function Home() {
                   Previous
                 </button>
 
-                <div className="flex items-center gap-1">
+                {/* Mobile: compact page indicator */}
+                <span className="sm:hidden text-sm text-zinc-400">
+                  {currentPage} / {pagination.totalPages}
+                </span>
+
+                {/* Desktop: full page numbers */}
+                <div className="hidden sm:flex items-center gap-1">
                   {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map((page) => (
                     <button
                       key={page}
@@ -153,7 +159,7 @@ export default function Home() {
                   Next
                 </button>
 
-                <span className="text-zinc-500 text-sm ml-4">
+                <span className="hidden sm:inline text-zinc-500 text-sm ml-4">
                   {pagination.totalCount} releases
                 </span>
               </div>
