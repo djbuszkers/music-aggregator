@@ -97,7 +97,7 @@ export function ReleaseCard({ release }: ReleaseCardProps) {
               </span>
             )}
             {release.review_snippet && (
-              <p className="text-zinc-600 mt-2 line-clamp-2 sm:line-clamp-5">{release.review_snippet}</p>
+              <p className="text-zinc-600 mt-2 line-clamp-5">{release.review_snippet}</p>
             )}
           </div>
         </div>
