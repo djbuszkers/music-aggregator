@@ -33,7 +33,7 @@ export function Header({ lastUpdated, onRefresh }: HeaderProps) {
     <header className="border-b border-zinc-800 bg-zinc-950/95 backdrop-blur-sm sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 py-3 sm:py-6 flex items-center justify-between">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-white">Music Aggregator</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">Muzyczka</h1>
           {formattedDate && (
             <p className="text-xs sm:text-sm text-zinc-500 mt-1">
               Last updated: {formattedDate}
