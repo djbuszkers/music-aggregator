@@ -40,8 +40,8 @@ TURSO_AUTH_TOKEN=<token>
 
 ### Data Sources
 
-1. **Nowa Muzyka** (Polish) - RSS feed, genres fetched from linked Bandcamp pages
-2. **Bandcamp Daily** - HTML scraping with Cheerio
+1. **Nowa Muzyka** (Polish) - RSS feed, genres and labels fetched from linked Bandcamp pages (JSON-LD)
+2. **Bandcamp Daily** - HTML scraping with Cheerio, labels fetched from Bandcamp album pages (JSON-LD)
 3. **Resident Advisor** - JavaScript-rendered, requires Puppeteer
 4. **Boomkat** - JavaScript-rendered, requires Puppeteer
 5. **Inverted Audio** - RSS feed with HTML scraping for details
@@ -53,12 +53,13 @@ src/
 ├── app/
 │   ├── page.tsx              # Main UI with release grid
 │   ├── layout.tsx            # App layout
+│   ├── icon.svg              # Favicon (waveform bars)
 │   ├── globals.css           # Tailwind styles
 │   └── api/
 │       ├── releases/route.ts # GET releases with pagination/filtering
 │       └── refresh/route.ts  # POST triggers all scrapers
 ├── components/
-│   ├── Header.tsx
+│   ├── Header.tsx            # Responsive logo (compact mobile, full desktop)
 │   ├── ReleaseCard.tsx
 │   └── ReleaseGrid.tsx
 └── lib/
@@ -66,11 +67,15 @@ src/
     ├── types.ts              # TypeScript interfaces
     ├── utils.ts              # Genre normalization
     └── scrapers/
-        ├── nowamuzyka.ts
-        ├── bandcamp.ts
+        ├── nowamuzyka.ts     # RSS + Bandcamp data (genres, labels)
+        ├── bandcamp.ts       # Cheerio + Bandcamp data (labels)
         ├── ra.ts
         ├── boomkat.ts
         └── inverted-audio.ts
+public/
+├── muzyczka-logo-full.svg    # Desktop logo (bars + text)
+├── muzyczka-logo-compact.svg # Mobile logo (bars + text)
+└── muzyczka-logo-icon.svg    # Icon only (bars)
 ```
 
 ### Database (Turso/libSQL)
@@ -84,7 +89,7 @@ All database functions are **async** and auto-initialize tables on first call.
 **Key functions in db.ts:**
 - `getSources()` / `getSourceByName(name)`
 - `getReleases(sourceId?, limit, offset, genre?)`
-- `insertRelease(release)` - Deduplicates cross-source releases by artist+title (case-insensitive); keeps the release with the longer review_snippet. Also returns false on same-URL duplicates (UNIQUE constraint on review_url)
+- `insertRelease(release)` - Deduplicates cross-source releases by artist+title (case-insensitive); keeps the release with the longer review_snippet. Backfills missing labels on existing releases during dedup. Also returns false on same-URL duplicates (UNIQUE constraint on review_url)
 
 ## Deployment
 
@@ -100,6 +105,19 @@ All database functions are **async** and auto-initialize tables on first call.
 - Cover images fetched from og:image or article content
 - Store review snippets (first ~650 chars of review text)
 - Cross-source duplicates are deduplicated by artist+title; the release with the longest review snippet wins
+- Record labels extracted from Bandcamp album pages via JSON-LD (`albumRelease[0].recordLabel.name`); not all albums have labels (self-released)
+
+## Planned Developments
+
+### New Source: Shatter the Standards
+
+- **URL:** https://www.shatterthestandards.com/t/album-reviews
+- **Focus:** Soul, R&B, hip-hop, neo-soul (fills gap in current coverage)
+- **Platform:** Substack
+- **Scraping approach:** HTML parsing of article list + individual article pages
+- **Data available:** Album title, artist (parse from title format "Album Review: [Title] by [Artist]"), publication date, cover image, review text, star rating, review URL
+- **Challenges:** No RSS feed; genre inference from review text; label info may need text parsing
+- **Priority:** High - actively covers 2026 releases with quality reviews of artists like Zo!, Jordan Ward, Ella Mai
 
 ## Common Tasks
 
