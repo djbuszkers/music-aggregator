@@ -39,10 +39,49 @@ function parseDate(text: string): string {
   return new Date().toISOString();
 }
 
-async function fetchPageData(url: string): Promise<{ genre: string | null; description: string | null }> {
+async function fetchLabelFromBandcamp(bandcampUrl: string): Promise<string | null> {
+  try {
+    const response = await fetch(bandcampUrl);
+    if (!response.ok) return null;
+
+    const html = await response.text();
+    const $ = cheerio.load(html);
+
+    const ldJsonScript = $('script[type="application/ld+json"]').html();
+    if (ldJsonScript) {
+      const ldJson = JSON.parse(ldJsonScript);
+      return ldJson.albumRelease?.[0]?.recordLabel?.name || null;
+    }
+  } catch {
+    // Failed to fetch or parse, continue without label
+  }
+  return null;
+}
+
+function findBestBandcampUrl(html: string, albumTitle: string): string | null {
+  const urlRegex = /https?:\/\/[a-z0-9-]+\.bandcamp\.com\/album\/[a-z0-9-]+/gi;
+  const urls = Array.from(new Set(html.match(urlRegex) || []));
+  if (urls.length === 0) return null;
+
+  // Slugify album title for matching: "Butterfly" -> "butterfly", "Euphoria Bound" -> "euphoria-bound"
+  const titleSlug = albumTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+  // Find URL whose album slug matches the title
+  for (const url of urls) {
+    const slug = url.split("/album/")[1];
+    if (slug && slug.toLowerCase() === titleSlug) {
+      return url;
+    }
+  }
+
+  // Fallback: first URL
+  return urls[0];
+}
+
+async function fetchPageData(url: string, albumTitle: string): Promise<{ genre: string | null; description: string | null; label: string | null }> {
   try {
     const response = await fetch(url);
-    if (!response.ok) return { genre: null, description: null };
+    if (!response.ok) return { genre: null, description: null, label: null };
 
     const html = await response.text();
     const $ = cheerio.load(html);
@@ -62,9 +101,16 @@ async function fetchPageData(url: string): Promise<{ genre: string | null; descr
       }
     });
 
-    return { genre, description };
+    // Find the best matching Bandcamp album URL and fetch label
+    let label: string | null = null;
+    const bandcampUrl = findBestBandcampUrl(html, albumTitle);
+    if (bandcampUrl) {
+      label = await fetchLabelFromBandcamp(bandcampUrl);
+    }
+
+    return { genre, description, label };
   } catch (err) {
-    return { genre: null, description: null };
+    return { genre: null, description: null, label: null };
   }
 }
 
@@ -133,12 +179,13 @@ export async function scrapeBandcamp(): Promise<number> {
       continue;
     }
 
-    const { genre, description } = await fetchPageData(release.reviewUrl);
+    const { genre, description, label } = await fetchPageData(release.reviewUrl, release.title);
 
     const releaseInput: ReleaseInput = {
       source_id: source.id,
       artist: release.artist,
       title: release.title,
+      label,
       genre: normalizeGenre(genre),
       cover_image: release.coverImage,
       review_url: release.reviewUrl,
@@ -146,10 +193,14 @@ export async function scrapeBandcamp(): Promise<number> {
       published_at: release.publishedAt,
     };
 
-    const inserted = await insertRelease(releaseInput);
-    if (inserted) {
-      newCount++;
-      console.log(`Added: ${release.artist} - ${release.title} (${genre || "no genre"})`);
+    try {
+      const inserted = await insertRelease(releaseInput);
+      if (inserted) {
+        newCount++;
+        console.log(`Added: ${release.artist} - ${release.title} (${genre || "no genre"})`);
+      }
+    } catch (err) {
+      console.log(`Skipped (duplicate): ${release.artist} - ${release.title}`);
     }
 
     // Small delay between requests

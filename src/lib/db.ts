@@ -186,7 +186,7 @@ export async function insertRelease(release: ReleaseInput): Promise<boolean> {
 
   // Check for cross-source duplicate (same artist + title, case-insensitive)
   const existing = await database.execute({
-    sql: `SELECT id, review_snippet FROM releases WHERE LOWER(TRIM(artist)) = LOWER(TRIM(?)) AND LOWER(TRIM(title)) = LOWER(TRIM(?))`,
+    sql: `SELECT id, review_snippet, label FROM releases WHERE LOWER(TRIM(artist)) = LOWER(TRIM(?)) AND LOWER(TRIM(title)) = LOWER(TRIM(?))`,
     args: [release.artist, release.title],
   });
 
@@ -218,7 +218,13 @@ export async function insertRelease(release: ReleaseInput): Promise<boolean> {
       return true;
     }
 
-    // Existing snippet is longer or equal — skip
+    // Existing snippet is longer or equal — but backfill missing label if available
+    if (release.label && !existing.rows[0].label) {
+      await database.execute({
+        sql: `UPDATE releases SET label = ? WHERE id = ?`,
+        args: [release.label, existing.rows[0].id],
+      });
+    }
     return false;
   }
 
@@ -243,7 +249,20 @@ export async function insertRelease(release: ReleaseInput): Promise<boolean> {
     });
     return true;
   } catch (error) {
-    if ((error as Error).message?.includes("UNIQUE constraint")) {
+    const errMsg = (error as Error).message || "";
+    const errCode = (error as { code?: string }).code || "";
+    if (errMsg.includes("UNIQUE constraint") || errMsg.includes("SQLITE_CONSTRAINT") || errCode === "SQLITE_CONSTRAINT") {
+      // Same review_url already exists — backfill label if missing
+      if (release.label) {
+        try {
+          await database.execute({
+            sql: `UPDATE releases SET label = ? WHERE review_url = ? AND (label IS NULL OR label = '')`,
+            args: [release.label, release.review_url],
+          });
+        } catch {
+          // Ignore update errors during backfill
+        }
+      }
       return false;
     }
     throw error;

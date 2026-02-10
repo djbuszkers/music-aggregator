@@ -48,9 +48,23 @@ function extractBandcampUrl(content: string): string | null {
   return match ? match[0] : null;
 }
 
-async function fetchBandcampGenres(bandcampUrl: string): Promise<string | null> {
+async function fetchBandcampData(bandcampUrl: string): Promise<{ genres: string | null; label: string | null }> {
   const html = await fetchPage(bandcampUrl);
-  if (!html) return null;
+  if (!html) return { genres: null, label: null };
+
+  const $ = cheerio.load(html);
+
+  // Extract label from JSON-LD structured data
+  let label: string | null = null;
+  try {
+    const ldJsonScript = $('script[type="application/ld+json"]').html();
+    if (ldJsonScript) {
+      const ldJson = JSON.parse(ldJsonScript);
+      label = ldJson.albumRelease?.[0]?.recordLabel?.name || null;
+    }
+  } catch {
+    // JSON-LD parsing failed, continue without label
+  }
 
   // Extract tags from bandcamp.com/discover/TAG URLs
   const tagRegex = /bandcamp\.com\/discover\/([a-z0-9-]+)/gi;
@@ -65,9 +79,9 @@ async function fetchBandcampGenres(bandcampUrl: string): Promise<string | null> 
     }
   }
 
-  if (tags.size === 0) return null;
+  const genres = tags.size > 0 ? Array.from(tags).join(", ") : null;
 
-  return Array.from(tags).join(", ");
+  return { genres, label };
 }
 
 function isNonGenreTag(tag: string): boolean {
@@ -179,18 +193,22 @@ export async function scrapeNowaMuzyka(): Promise<number> {
       coverImage = await fetchOgImage(item.link);
     }
 
-    // Extract genre from Bandcamp if available
+    // Extract genre and label from Bandcamp if available
     let genre: string | null = null;
+    let label: string | null = null;
     const bandcampUrl = extractBandcampUrl(content);
     if (bandcampUrl) {
-      console.log(`  Fetching genres from ${bandcampUrl}...`);
-      genre = await fetchBandcampGenres(bandcampUrl);
+      console.log(`  Fetching data from ${bandcampUrl}...`);
+      const bandcampData = await fetchBandcampData(bandcampUrl);
+      genre = bandcampData.genres;
+      label = bandcampData.label;
     }
 
     const release: ReleaseInput = {
       source_id: source.id,
       artist,
       title,
+      label,
       genre: normalizeGenre(genre),
       cover_image: coverImage,
       review_url: item.link,
