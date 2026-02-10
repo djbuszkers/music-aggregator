@@ -5,7 +5,9 @@ import { scrapeRA } from "@/lib/scrapers/ra";
 import { scrapeBoomkat } from "@/lib/scrapers/boomkat";
 import { scrapeInvertedAudio } from "@/lib/scrapers/inverted-audio";
 
-export async function POST() {
+export const maxDuration = 300;
+
+async function handleRefresh() {
   try {
     console.log("Starting refresh...");
 
@@ -67,4 +69,12 @@ export async function POST() {
       { status: 500 }
     );
   }
+}
+
+export async function GET() {
+  return handleRefresh();
+}
+
+export async function POST() {
+  return handleRefresh();
 }

@@ -55,17 +55,6 @@ export default function Home() {
     fetchReleases(1, selectedGenre);
   }, [fetchReleases, selectedGenre]);
 
-  const handleRefresh = async () => {
-    try {
-      const response = await fetch("/api/refresh", { method: "POST" });
-      const data = await response.json();
-      console.log("Refresh result:", data);
-      await fetchReleases(1, selectedGenre);
-    } catch (error) {
-      console.error("Failed to refresh:", error);
-    }
-  };
-
   const handlePageChange = (page: number) => {
     fetchReleases(page, selectedGenre);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -78,7 +67,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen">
-      <Header lastUpdated={lastUpdated} onRefresh={handleRefresh} />
+      <Header lastUpdated={lastUpdated} />
 
       <main className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
         {/* Genre Filter */}
