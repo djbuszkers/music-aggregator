@@ -22,6 +22,8 @@ export interface Release {
   raw_data: string | null;
   spotify_url: string | null;
   spotify_id: string | null;
+  youtube_url: string | null;
+  youtube_id: string | null;
   source_name?: string;
 }
 
