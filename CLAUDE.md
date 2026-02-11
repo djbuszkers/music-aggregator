@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Music aggregator website for a DJ/radio host. Aggregates album reviews from 5 curated sources into a unified feed.
+Music aggregator website for a DJ/radio host. Aggregates album reviews from 6 curated sources into a unified feed.
 
 **Tech Stack:** Next.js 14.2 (App Router), TypeScript, Tailwind CSS, Turso (libSQL) for database, deployed on Vercel with cron jobs.
 
@@ -45,6 +45,7 @@ TURSO_AUTH_TOKEN=<token>
 3. **Resident Advisor** - JavaScript-rendered, requires Puppeteer
 4. **Boomkat** - JavaScript-rendered, requires Puppeteer
 5. **Inverted Audio** - RSS feed with HTML scraping for details
+6. **Shatter the Standards** - Substack archive API + Cheerio scraping; covers soul, R&B, hip-hop, neo-soul
 
 ### Key Files
 
@@ -53,13 +54,13 @@ src/
 ├── app/
 │   ├── page.tsx              # Main UI with release grid
 │   ├── layout.tsx            # App layout
-│   ├── icon.svg              # Favicon (waveform bars)
+│   ├── icon.svg              # Favicon (vinyl record)
 │   ├── globals.css           # Tailwind styles
 │   └── api/
 │       ├── releases/route.ts # GET releases with pagination/filtering
 │       └── refresh/route.ts  # POST triggers all scrapers
 ├── components/
-│   ├── Header.tsx            # Responsive logo (compact mobile, full desktop)
+│   ├── Header.tsx            # Logo + last updated
 │   ├── ReleaseCard.tsx
 │   └── ReleaseGrid.tsx
 └── lib/
@@ -71,11 +72,10 @@ src/
         ├── bandcamp.ts       # Cheerio + Bandcamp data (labels)
         ├── ra.ts
         ├── boomkat.ts
-        └── inverted-audio.ts
+        ├── inverted-audio.ts
+        └── shatter-the-standards.ts  # Substack archive API + Cheerio
 public/
-├── muzyczka-logo-full.svg    # Desktop logo (bars + text)
-├── muzyczka-logo-compact.svg # Mobile logo (bars + text)
-└── muzyczka-logo-icon.svg    # Icon only (bars)
+└── octocrate-logo.png        # OctoCrate logo (tentacle + vinyl)
 ```
 
 ### Database (Turso/libSQL)
@@ -106,18 +106,6 @@ All database functions are **async** and auto-initialize tables on first call.
 - Store review snippets (first ~650 chars of review text)
 - Cross-source duplicates are deduplicated by artist+title; the release with the longest review snippet wins
 - Record labels extracted from Bandcamp album pages via JSON-LD (`albumRelease[0].recordLabel.name`); not all albums have labels (self-released)
-
-## Planned Developments
-
-### New Source: Shatter the Standards
-
-- **URL:** https://www.shatterthestandards.com/t/album-reviews
-- **Focus:** Soul, R&B, hip-hop, neo-soul (fills gap in current coverage)
-- **Platform:** Substack
-- **Scraping approach:** HTML parsing of article list + individual article pages
-- **Data available:** Album title, artist (parse from title format "Album Review: [Title] by [Artist]"), publication date, cover image, review text, star rating, review URL
-- **Challenges:** No RSS feed; genre inference from review text; label info may need text parsing
-- **Priority:** High - actively covers 2026 releases with quality reviews of artists like Zo!, Jordan Ward, Ella Mai
 
 ## Common Tasks
 

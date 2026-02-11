@@ -1,8 +1,0 @@
-<svg width="210" height="40" viewBox="0 0 210 40" xmlns="http://www.w3.org/2000/svg">
-    <rect x="0" y="10" width="4" height="20" rx="2" fill="#fff"/>
-    <rect x="7" y="3" width="4" height="34" rx="2" fill="#fff"/>
-    <rect x="14" y="7" width="4" height="26" rx="2" fill="#fff"/>
-    <rect x="21" y="0" width="4" height="40" rx="2" fill="#fff"/>
-    <rect x="28" y="9" width="4" height="23" rx="2" fill="#fff"/>
-    <text x="42" y="28" font-family="'Courier New', monospace" font-size="24" font-weight="300" fill="#fff" letter-spacing="4">muzyczka</text>
-</svg>

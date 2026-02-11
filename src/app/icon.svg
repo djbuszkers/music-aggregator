@@ -1,7 +1,10 @@
-<svg width="50" height="56" viewBox="0 0 50 56" xmlns="http://www.w3.org/2000/svg">
-    <rect x="0" y="14" width="5" height="28" rx="2.5" fill="#fff"/>
-    <rect x="10" y="4" width="5" height="48" rx="2.5" fill="#fff"/>
-    <rect x="20" y="10" width="5" height="36" rx="2.5" fill="#fff"/>
-    <rect x="30" y="0" width="5" height="56" rx="2.5" fill="#fff"/>
-    <rect x="40" y="12" width="5" height="32" rx="2.5" fill="#fff"/>
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <!-- Vinyl record -->
+  <circle cx="32" cy="32" r="30" fill="#fff" stroke="none"/>
+  <circle cx="32" cy="32" r="25" fill="none" stroke="#000" stroke-width="1" opacity="0.3"/>
+  <circle cx="32" cy="32" r="20" fill="none" stroke="#000" stroke-width="0.5" opacity="0.2"/>
+  <circle cx="32" cy="32" r="15" fill="none" stroke="#000" stroke-width="0.5" opacity="0.2"/>
+  <!-- Center hole -->
+  <circle cx="32" cy="32" r="5" fill="#000"/>
+  <circle cx="32" cy="32" r="2" fill="#fff"/>
 </svg>

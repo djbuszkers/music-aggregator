@@ -6,8 +6,8 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "muzyczka",
-  description: "Curated album reviews from the best music source - all in one place, brought to you by Buszkers",
+  title: "OctoCrate",
+  description: "Eight arms in the crates. Curated from the deep.",
 };
 
 export default function RootLayout({
