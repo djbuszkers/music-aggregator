@@ -19,7 +19,7 @@ export function Header({ lastUpdated }: HeaderProps) {
         <img
           src="/octocrate-logo.svg"
           alt="OctoCrate"
-          className="h-16 sm:h-24"
+          className="h-32 sm:h-48"
         />
         {formattedDate && (
           <p className="text-xs sm:text-sm text-zinc-500 mt-1">
