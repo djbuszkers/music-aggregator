@@ -63,6 +63,7 @@ export async function initDb(): Promise<void> {
     ["Inverted Audio", "https://inverted-audio.com/review/", "cheerio"],
     ["Resident Advisor", "https://ra.co/reviews", "puppeteer"],
     ["Boomkat", "https://boomkat.com/weekly-roundup", "puppeteer"],
+    ["Shatter the Standards", "https://www.shatterthestandards.com/feed", "cheerio"],
   ];
 
   for (const [name, url, scraper_type] of sources) {

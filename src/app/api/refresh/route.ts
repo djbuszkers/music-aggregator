@@ -4,6 +4,7 @@ import { scrapeBandcamp } from "@/lib/scrapers/bandcamp";
 import { scrapeRA } from "@/lib/scrapers/ra";
 import { scrapeBoomkat } from "@/lib/scrapers/boomkat";
 import { scrapeInvertedAudio } from "@/lib/scrapers/inverted-audio";
+import { scrapeShatterTheStandards } from "@/lib/scrapers/shatter-the-standards";
 
 export const maxDuration = 300;
 
@@ -17,6 +18,7 @@ async function handleRefresh() {
       residentAdvisor: 0,
       boomkat: 0,
       invertedAudio: 0,
+      shatterTheStandards: 0,
       total: 0,
     };
 
@@ -55,7 +57,14 @@ async function handleRefresh() {
       console.error("Error scraping Inverted Audio:", error);
     }
 
-    results.total = results.nowaMuzyka + results.bandcamp + results.residentAdvisor + results.boomkat + results.invertedAudio;
+    // Scrape Shatter the Standards
+    try {
+      results.shatterTheStandards = await scrapeShatterTheStandards();
+    } catch (error) {
+      console.error("Error scraping Shatter the Standards:", error);
+    }
+
+    results.total = results.nowaMuzyka + results.bandcamp + results.residentAdvisor + results.boomkat + results.invertedAudio + results.shatterTheStandards;
 
     return NextResponse.json({
       success: true,

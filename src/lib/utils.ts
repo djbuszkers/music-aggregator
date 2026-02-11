@@ -79,6 +79,12 @@ const GENRE_MAP: Record<string, string> = {
   "uk bass": "BASS",
   "halftime": "BASS",
   
+  // SOUL
+  "r&b": "SOUL",
+  "rnb": "SOUL",
+  "neo-soul": "SOUL",
+  "neo soul": "SOUL",
+
   // JAZZ
   "fusion": "JAZZ",
   "jazz fusion": "JAZZ",
