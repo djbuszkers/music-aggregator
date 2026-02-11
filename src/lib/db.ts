@@ -53,6 +53,18 @@ export async function initDb(): Promise<void> {
     )
   `);
 
+  // Add Spotify columns if they don't exist
+  try {
+    await database.execute(`ALTER TABLE releases ADD COLUMN spotify_url TEXT`);
+  } catch {
+    // Column already exists
+  }
+  try {
+    await database.execute(`ALTER TABLE releases ADD COLUMN spotify_id TEXT`);
+  } catch {
+    // Column already exists
+  }
+
   await database.execute(`CREATE INDEX IF NOT EXISTS idx_releases_published_at ON releases(published_at DESC)`);
   await database.execute(`CREATE INDEX IF NOT EXISTS idx_releases_source_id ON releases(source_id)`);
 
@@ -268,6 +280,27 @@ export async function insertRelease(release: ReleaseInput): Promise<boolean> {
     }
     throw error;
   }
+}
+
+export async function getReleasesWithoutSpotify(): Promise<Release[]> {
+  await ensureInitialized();
+  const database = getDb();
+  const result = await database.execute(`
+    SELECT r.*, s.name as source_name
+    FROM releases r
+    JOIN sources s ON r.source_id = s.id
+    WHERE r.spotify_url IS NULL AND r.published_at >= '2026-01-01'
+    ORDER BY r.published_at DESC
+  `);
+  return result.rows as unknown as Release[];
+}
+
+export async function updateReleaseSpotify(releaseId: number, spotifyUrl: string, spotifyId: string): Promise<void> {
+  const database = getDb();
+  await database.execute({
+    sql: `UPDATE releases SET spotify_url = ?, spotify_id = ? WHERE id = ?`,
+    args: [spotifyUrl, spotifyId, releaseId],
+  });
 }
 
 export async function getLastUpdated(): Promise<string | null> {

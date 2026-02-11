@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Music aggregator website for a DJ/radio host. Aggregates album reviews from 6 curated sources into a unified feed.
+**OctoCrate** — music aggregator website for a DJ/radio host. Aggregates album reviews from 6 curated sources into a unified feed.
 
 **Tech Stack:** Next.js 14.2 (App Router), TypeScript, Tailwind CSS, Turso (libSQL) for database, deployed on Vercel with cron jobs.
 
@@ -75,7 +75,7 @@ src/
         ├── inverted-audio.ts
         └── shatter-the-standards.ts  # Substack archive API + Cheerio
 public/
-└── octocrate-logo.png        # OctoCrate logo (tentacle + vinyl)
+└── octocrate-logo.svg        # OctoCrate logo (tentacle + vinyl, transparent bg)
 ```
 
 ### Database (Turso/libSQL)

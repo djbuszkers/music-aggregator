@@ -20,6 +20,8 @@ export interface Release {
   published_at: string;
   scraped_at: string;
   raw_data: string | null;
+  spotify_url: string | null;
+  spotify_id: string | null;
   source_name?: string;
 }
 
