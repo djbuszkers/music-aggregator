@@ -6,8 +6,8 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Music Aggregator",
-  description: "Curated album reviews from the best music sources",
+  title: "muzyczka",
+  description: "Curated album reviews from the best music source - all in one place, brought to you by Buszkers",
 };
 
 export default function RootLayout({
