@@ -334,6 +334,21 @@ export async function updateReleaseYouTube(releaseId: number, youtubeUrl: string
   });
 }
 
+export async function getReleaseById(id: number): Promise<(Release & { source_url?: string }) | null> {
+  await ensureInitialized();
+  const database = getDb();
+  const result = await database.execute({
+    sql: `
+      SELECT r.*, s.name as source_name, s.url as source_url
+      FROM releases r
+      JOIN sources s ON r.source_id = s.id
+      WHERE r.id = ?
+    `,
+    args: [id],
+  });
+  return (result.rows[0] as unknown as (Release & { source_url?: string })) ?? null;
+}
+
 export async function getLastUpdated(): Promise<string | null> {
   await ensureInitialized();
   const database = getDb();

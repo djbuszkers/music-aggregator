@@ -1,6 +1,7 @@
 "use client";
 
 import type { Release } from "@/lib/types";
+import { ShareButton } from "./ShareButton";
 
 interface ReleaseCardProps {
   release: Release;
@@ -18,9 +19,7 @@ export function ReleaseCard({ release }: ReleaseCardProps) {
 
   return (
     <a
-      href={release.review_url}
-      target="_blank"
-      rel="noopener noreferrer"
+      href={`/release/${release.id}`}
       className="group flex flex-col sm:flex-row gap-3 sm:gap-4 py-4 px-4 hover:bg-zinc-900 transition-colors border-b border-zinc-800"
     >
       {/* Cover Image */}
@@ -83,6 +82,11 @@ export function ReleaseCard({ release }: ReleaseCardProps) {
                   YouTube
                 </span>
               )}
+              <ShareButton
+                releaseId={release.id}
+                artist={release.artist}
+                title={release.title}
+              />
               <span className="px-2 py-0.5 text-xs font-medium bg-zinc-800 text-zinc-400 rounded">
                 {release.source_name}
               </span>
