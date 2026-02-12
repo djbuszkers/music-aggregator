@@ -1,6 +1,7 @@
 import * as cheerio from "cheerio";
 import { getSourceByName, insertRelease, updateSourceLastFetched } from "../db";
 import { normalizeGenre } from "../utils";
+import { extractBandcampAlbumId } from "../bandcamp";
 import type { ReleaseInput } from "../types";
 
 const BASE_URL = "https://daily.bandcamp.com";
@@ -39,23 +40,28 @@ function parseDate(text: string): string {
   return new Date().toISOString();
 }
 
-async function fetchLabelFromBandcamp(bandcampUrl: string): Promise<string | null> {
+async function fetchBandcampAlbumData(bandcampUrl: string): Promise<{ label: string | null; albumId: string | null }> {
   try {
     const response = await fetch(bandcampUrl);
-    if (!response.ok) return null;
+    if (!response.ok) return { label: null, albumId: null };
 
     const html = await response.text();
     const $ = cheerio.load(html);
 
+    let label: string | null = null;
     const ldJsonScript = $('script[type="application/ld+json"]').html();
     if (ldJsonScript) {
       const ldJson = JSON.parse(ldJsonScript);
-      return ldJson.albumRelease?.[0]?.recordLabel?.name || null;
+      label = ldJson.albumRelease?.[0]?.recordLabel?.name || null;
     }
+
+    const albumId = extractBandcampAlbumId(html);
+
+    return { label, albumId };
   } catch {
-    // Failed to fetch or parse, continue without label
+    // Failed to fetch or parse
   }
-  return null;
+  return { label: null, albumId: null };
 }
 
 function findBestBandcampUrl(html: string, albumTitle: string): string | null {
@@ -78,10 +84,10 @@ function findBestBandcampUrl(html: string, albumTitle: string): string | null {
   return urls[0];
 }
 
-async function fetchPageData(url: string, albumTitle: string): Promise<{ genre: string | null; description: string | null; label: string | null }> {
+async function fetchPageData(url: string, albumTitle: string): Promise<{ genre: string | null; description: string | null; label: string | null; bandcampUrl: string | null; bandcampAlbumId: string | null }> {
   try {
     const response = await fetch(url);
-    if (!response.ok) return { genre: null, description: null, label: null };
+    if (!response.ok) return { genre: null, description: null, label: null, bandcampUrl: null, bandcampAlbumId: null };
 
     const html = await response.text();
     const $ = cheerio.load(html);
@@ -101,16 +107,22 @@ async function fetchPageData(url: string, albumTitle: string): Promise<{ genre: 
       }
     });
 
-    // Find the best matching Bandcamp album URL and fetch label
+    // Find the best matching Bandcamp album URL and fetch label + album ID
     let label: string | null = null;
+    let bandcampAlbumId: string | null = null;
     const bandcampUrl = findBestBandcampUrl(html, albumTitle);
     if (bandcampUrl) {
-      label = await fetchLabelFromBandcamp(bandcampUrl);
+      const albumData = await fetchBandcampAlbumData(bandcampUrl);
+      label = albumData.label;
+      bandcampAlbumId = albumData.albumId;
+      if (bandcampAlbumId) {
+        console.log(`  Found Bandcamp album ID: ${bandcampAlbumId}`);
+      }
     }
 
-    return { genre, description, label };
+    return { genre, description, label, bandcampUrl, bandcampAlbumId };
   } catch (err) {
-    return { genre: null, description: null, label: null };
+    return { genre: null, description: null, label: null, bandcampUrl: null, bandcampAlbumId: null };
   }
 }
 
@@ -179,7 +191,7 @@ export async function scrapeBandcamp(): Promise<number> {
       continue;
     }
 
-    const { genre, description, label } = await fetchPageData(release.reviewUrl, release.title);
+    const { genre, description, label, bandcampUrl, bandcampAlbumId } = await fetchPageData(release.reviewUrl, release.title);
 
     const releaseInput: ReleaseInput = {
       source_id: source.id,
@@ -191,6 +203,8 @@ export async function scrapeBandcamp(): Promise<number> {
       review_url: release.reviewUrl,
       review_snippet: description || null,
       published_at: release.publishedAt,
+      bandcamp_url: bandcampUrl,
+      bandcamp_album_id: bandcampAlbumId,
     };
 
     try {

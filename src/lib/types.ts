@@ -24,6 +24,8 @@ export interface Release {
   spotify_id: string | null;
   youtube_url: string | null;
   youtube_id: string | null;
+  bandcamp_url: string | null;
+  bandcamp_album_id: string | null;
   source_name?: string;
 }
 
@@ -38,4 +40,6 @@ export interface ReleaseInput {
   review_snippet?: string | null;
   published_at: string;
   raw_data?: string | null;
+  bandcamp_url?: string | null;
+  bandcamp_album_id?: string | null;
 }

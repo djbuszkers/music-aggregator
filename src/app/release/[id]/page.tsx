@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getReleaseById } from "@/lib/db";
 import { ShareButton } from "@/components/ShareButton";
+import { getBandcampEmbedUrl } from "@/lib/bandcamp";
 
 async function getRelease(id: string) {
   const numId = parseInt(id, 10);
@@ -149,6 +150,19 @@ export default async function ReleasePage({
           </div>
         </div>
 
+        {/* Bandcamp Player */}
+        {release.bandcamp_album_id && (
+          <div className="mt-8 flex justify-center">
+            <iframe
+              style={{ border: 0, width: "350px", maxWidth: "100%", height: "120px" }}
+              src={getBandcampEmbedUrl(release.bandcamp_album_id)}
+              seamless
+              allow="autoplay"
+              title={`Bandcamp player for ${release.artist} - ${release.title}`}
+            />
+          </div>
+        )}
+
         {/* Details section */}
         <div className="mt-8 bg-zinc-900 rounded-lg p-6">
           {release.review_snippet && (
@@ -184,6 +198,7 @@ export default async function ReleasePage({
             </a>
           </div>
         </div>
+
       </div>
     </main>
   );

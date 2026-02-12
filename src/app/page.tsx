@@ -26,15 +26,15 @@ export default function Home() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [genres, setGenres] = useState<string[]>([]);
-  const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
+  const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
 
-  const fetchReleases = useCallback(async (page: number = 1, genre: string | null = null) => {
+  const fetchReleases = useCallback(async (page: number = 1, genres_filter: string[] = []) => {
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
       params.set("page", page.toString());
-      if (genre) {
-        params.set("genre", genre);
+      if (genres_filter.length > 0) {
+        params.set("genres", genres_filter.join(","));
       }
 
       const response = await fetch(`/api/releases?${params}`);
@@ -52,16 +52,23 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    fetchReleases(1, selectedGenre);
-  }, [fetchReleases, selectedGenre]);
+    fetchReleases(1, selectedGenres);
+  }, [fetchReleases, selectedGenres]);
 
   const handlePageChange = (page: number) => {
-    fetchReleases(page, selectedGenre);
+    fetchReleases(page, selectedGenres);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const handleGenreChange = (genre: string | null) => {
-    setSelectedGenre(genre);
+  const handleGenreToggle = (genre: string) => {
+    setSelectedGenres((prev) =>
+      prev.includes(genre) ? prev.filter((g) => g !== genre) : [...prev, genre]
+    );
+    setCurrentPage(1);
+  };
+
+  const handleClearGenres = () => {
+    setSelectedGenres([]);
     setCurrentPage(1);
   };
 
@@ -74,9 +81,9 @@ export default function Home() {
         <div className="sticky top-[60px] sm:top-[100px] z-40 bg-zinc-950/95 backdrop-blur-sm -mx-4 px-4 py-3 mb-4">
           <div className="flex flex-nowrap overflow-x-auto sm:flex-wrap gap-1.5 scrollbar-hide">
             <button
-              onClick={() => handleGenreChange(null)}
+              onClick={handleClearGenres}
               className={`px-3 py-2 sm:px-2 sm:py-1 text-xs rounded-full transition-colors whitespace-nowrap flex-shrink-0 ${
-                selectedGenre === null
+                selectedGenres.length === 0
                   ? "bg-white text-black font-medium"
                   : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
               }`}
@@ -86,9 +93,9 @@ export default function Home() {
             {genres.map((genre) => (
               <button
                 key={genre}
-                onClick={() => handleGenreChange(genre)}
+                onClick={() => handleGenreToggle(genre)}
                 className={`px-3 py-2 sm:px-2 sm:py-1 text-xs rounded-full transition-colors whitespace-nowrap flex-shrink-0 ${
-                  selectedGenre === genre
+                  selectedGenres.includes(genre)
                     ? "bg-white text-black font-medium"
                     : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
                 }`}

@@ -74,6 +74,16 @@ export async function initDb(): Promise<void> {
   } catch {
     // Column already exists
   }
+  try {
+    await database.execute(`ALTER TABLE releases ADD COLUMN bandcamp_url TEXT`);
+  } catch {
+    // Column already exists
+  }
+  try {
+    await database.execute(`ALTER TABLE releases ADD COLUMN bandcamp_album_id TEXT`);
+  } catch {
+    // Column already exists
+  }
 
   await database.execute(`CREATE INDEX IF NOT EXISTS idx_releases_published_at ON releases(published_at DESC)`);
   await database.execute(`CREATE INDEX IF NOT EXISTS idx_releases_source_id ON releases(source_id)`);
@@ -131,7 +141,7 @@ export async function updateSourceLastFetched(sourceId: number): Promise<void> {
   });
 }
 
-export async function getReleases(sourceId?: number, limit = 15, offset = 0, genre?: string): Promise<Release[]> {
+export async function getReleases(sourceId?: number, limit = 15, offset = 0, genres?: string[]): Promise<Release[]> {
   await ensureInitialized();
   const database = getDb();
   let query = `
@@ -147,9 +157,12 @@ export async function getReleases(sourceId?: number, limit = 15, offset = 0, gen
     args.push(sourceId);
   }
 
-  if (genre) {
-    query += " AND r.genre LIKE ?";
-    args.push(`%${genre}%`);
+  if (genres && genres.length > 0) {
+    const conditions = genres.map(() => "r.genre LIKE ?");
+    query += ` AND (${conditions.join(" OR ")})`;
+    for (const g of genres) {
+      args.push(`%${g}%`);
+    }
   }
 
   query += " ORDER BY r.published_at DESC LIMIT ? OFFSET ?";
@@ -159,7 +172,7 @@ export async function getReleases(sourceId?: number, limit = 15, offset = 0, gen
   return result.rows as unknown as Release[];
 }
 
-export async function getTotalReleases(sourceId?: number, genre?: string): Promise<number> {
+export async function getTotalReleases(sourceId?: number, genres?: string[]): Promise<number> {
   await ensureInitialized();
   const database = getDb();
   let query = `
@@ -174,9 +187,12 @@ export async function getTotalReleases(sourceId?: number, genre?: string): Promi
     args.push(sourceId);
   }
 
-  if (genre) {
-    query += " AND r.genre LIKE ?";
-    args.push(`%${genre}%`);
+  if (genres && genres.length > 0) {
+    const conditions = genres.map(() => "r.genre LIKE ?");
+    query += ` AND (${conditions.join(" OR ")})`;
+    for (const g of genres) {
+      args.push(`%${g}%`);
+    }
   }
 
   const result = await database.execute({ sql: query, args });
@@ -221,7 +237,8 @@ export async function insertRelease(release: ReleaseInput): Promise<boolean> {
       // New review is longer — update the existing row
       await database.execute({
         sql: `
-          UPDATE releases SET source_id = ?, artist = ?, title = ?, label = ?, genre = ?, cover_image = ?, review_url = ?, review_snippet = ?, published_at = ?, raw_data = ?
+          UPDATE releases SET source_id = ?, artist = ?, title = ?, label = ?, genre = ?, cover_image = ?, review_url = ?, review_snippet = ?, published_at = ?, raw_data = ?,
+          bandcamp_url = COALESCE(?, bandcamp_url), bandcamp_album_id = COALESCE(?, bandcamp_album_id)
           WHERE id = ?
         `,
         args: [
@@ -235,17 +252,34 @@ export async function insertRelease(release: ReleaseInput): Promise<boolean> {
           release.review_snippet ?? null,
           release.published_at,
           release.raw_data ?? null,
+          release.bandcamp_url ?? null,
+          release.bandcamp_album_id ?? null,
           existing.rows[0].id,
         ],
       });
       return true;
     }
 
-    // Existing snippet is longer or equal — but backfill missing label if available
+    // Existing snippet is longer or equal — but backfill missing fields
+    const backfills: string[] = [];
+    const backfillArgs: (string | number)[] = [];
     if (release.label && !existing.rows[0].label) {
+      backfills.push("label = ?");
+      backfillArgs.push(release.label);
+    }
+    if (release.bandcamp_url) {
+      backfills.push("bandcamp_url = COALESCE(bandcamp_url, ?)");
+      backfillArgs.push(release.bandcamp_url);
+    }
+    if (release.bandcamp_album_id) {
+      backfills.push("bandcamp_album_id = COALESCE(bandcamp_album_id, ?)");
+      backfillArgs.push(release.bandcamp_album_id);
+    }
+    if (backfills.length > 0) {
+      backfillArgs.push(existing.rows[0].id as number);
       await database.execute({
-        sql: `UPDATE releases SET label = ? WHERE id = ?`,
-        args: [release.label, existing.rows[0].id],
+        sql: `UPDATE releases SET ${backfills.join(", ")} WHERE id = ?`,
+        args: backfillArgs,
       });
     }
     return false;
@@ -254,8 +288,8 @@ export async function insertRelease(release: ReleaseInput): Promise<boolean> {
   try {
     await database.execute({
       sql: `
-        INSERT INTO releases (source_id, artist, title, label, genre, cover_image, review_url, review_snippet, published_at, raw_data)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO releases (source_id, artist, title, label, genre, cover_image, review_url, review_snippet, published_at, raw_data, bandcamp_url, bandcamp_album_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       args: [
         release.source_id,
@@ -268,6 +302,8 @@ export async function insertRelease(release: ReleaseInput): Promise<boolean> {
         release.review_snippet ?? null,
         release.published_at,
         release.raw_data ?? null,
+        release.bandcamp_url ?? null,
+        release.bandcamp_album_id ?? null,
       ],
     });
     return true;
@@ -331,6 +367,27 @@ export async function updateReleaseYouTube(releaseId: number, youtubeUrl: string
   await database.execute({
     sql: `UPDATE releases SET youtube_url = ?, youtube_id = ? WHERE id = ?`,
     args: [youtubeUrl, youtubeId, releaseId],
+  });
+}
+
+export async function getReleasesWithoutBandcamp(): Promise<Release[]> {
+  await ensureInitialized();
+  const database = getDb();
+  const result = await database.execute(`
+    SELECT r.*, s.name as source_name
+    FROM releases r
+    JOIN sources s ON r.source_id = s.id
+    WHERE r.bandcamp_album_id IS NULL AND r.published_at >= '2026-01-01'
+    ORDER BY r.published_at DESC
+  `);
+  return result.rows as unknown as Release[];
+}
+
+export async function updateReleaseBandcamp(releaseId: number, bandcampUrl: string, bandcampAlbumId: string): Promise<void> {
+  const database = getDb();
+  await database.execute({
+    sql: `UPDATE releases SET bandcamp_url = ?, bandcamp_album_id = ? WHERE id = ?`,
+    args: [bandcampUrl, bandcampAlbumId, releaseId],
   });
 }
 

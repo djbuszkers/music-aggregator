@@ -75,6 +75,7 @@ src/
     ├── db.ts                 # Turso database connection (async)
     ├── types.ts              # TypeScript interfaces
     ├── utils.ts              # Genre normalization
+    ├── bandcamp.ts           # Bandcamp album ID extraction + embed URL
     ├── spotify.ts            # Spotify API client (album search)
     ├── youtube.ts            # YouTube Data API client (music video search)
     └── scrapers/
@@ -94,12 +95,12 @@ All database functions are **async** and auto-initialize tables on first call.
 
 **Tables:**
 - `sources` - Source metadata (name, url, scraper_type, last_fetched)
-- `releases` - Reviews with artist, title, label, genre, cover_image, review_url, review_snippet, published_at, spotify_url, spotify_id, youtube_url, youtube_id
+- `releases` - Reviews with artist, title, label, genre, cover_image, review_url, review_snippet, published_at, spotify_url, spotify_id, youtube_url, youtube_id, bandcamp_url, bandcamp_album_id
 
 **Key functions in db.ts:**
 - `getSources()` / `getSourceByName(name)`
-- `getReleases(sourceId?, limit, offset, genre?)` / `getReleaseById(id)`
-- `insertRelease(release)` - Deduplicates cross-source releases by artist+title (case-insensitive); keeps the release with the longer review_snippet. Backfills missing labels on existing releases during dedup. Also returns false on same-URL duplicates (UNIQUE constraint on review_url)
+- `getReleases(sourceId?, limit, offset, genres?)` / `getReleaseById(id)`
+- `insertRelease(release)` - Deduplicates cross-source releases by artist+title (case-insensitive); keeps the release with the longer review_snippet. Backfills missing labels and bandcamp data on existing releases during dedup. Also returns false on same-URL duplicates (UNIQUE constraint on review_url)
 
 ## Deployment
 
@@ -121,6 +122,7 @@ All database functions are **async** and auto-initialize tables on first call.
 
 - **Spotify:** Release cards link to matching Spotify albums. Uses Client Credentials flow (`spotify.ts`) with token caching. API endpoint at `/api/spotify-match` for on-demand lookups. Matched data stored in `spotify_url` and `spotify_id` columns.
 - **YouTube Music:** Release cards link to matching YouTube Music videos. Uses YouTube Data API v3 (`youtube.ts`), filtered to music category. Matched data stored in `youtube_url` and `youtube_id` columns.
+- **Bandcamp:** Embedded player on release pages for albums with Bandcamp data. Album IDs extracted during scraping from Nowa Muzyka and Bandcamp Daily sources (`bandcamp.ts`). Data stored in `bandcamp_url` and `bandcamp_album_id` columns. Release cards also show a Bandcamp button linking to the album page.
 
 ### Individual Release Pages
 
@@ -128,6 +130,12 @@ All database functions are **async** and auto-initialize tables on first call.
 - OpenGraph and Twitter Card meta tags for social media previews (album cover as image, artist/title, review snippet)
 - `ShareButton` component uses Web Share API on mobile (native share sheet) with clipboard fallback on desktop
 - Release cards on the homepage link to the release page; "Read Full Review" button on the release page links to the original review
+- Bandcamp embedded player shown on release pages when `bandcamp_album_id` is available (slim standard layout, no artwork, dark theme)
+
+### Genre Filtering
+
+- Homepage supports multi-select genre filtering with OR logic (selecting multiple genres shows releases matching any of them)
+- Streaming service buttons (Spotify, YouTube, Bandcamp) displayed on a separate row below the title line on release cards
 
 ## Common Tasks
 

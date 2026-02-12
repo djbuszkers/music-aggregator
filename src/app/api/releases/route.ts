@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const sourceParam = searchParams.get("source");
     const pageParam = searchParams.get("page");
-    const genreParam = searchParams.get("genre");
+    const genresParam = searchParams.get("genres");
 
     let sourceId: number | undefined;
 
@@ -24,10 +24,10 @@ export async function GET(request: NextRequest) {
 
     const page = pageParam ? Math.max(1, parseInt(pageParam, 10)) : 1;
     const offset = (page - 1) * PAGE_SIZE;
-    const genre = genreParam || undefined;
+    const genreFilter = genresParam ? genresParam.split(",").filter(Boolean) : undefined;
 
-    const releases = await getReleases(sourceId, PAGE_SIZE, offset, genre);
-    const totalCount = await getTotalReleases(sourceId, genre);
+    const releases = await getReleases(sourceId, PAGE_SIZE, offset, genreFilter);
+    const totalCount = await getTotalReleases(sourceId, genreFilter);
     const totalPages = Math.ceil(totalCount / PAGE_SIZE);
     const lastUpdated = await getLastUpdated();
     const genres = await getDistinctGenres();
