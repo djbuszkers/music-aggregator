@@ -43,11 +43,11 @@ export function ShareButton({ releaseId, artist, title }: ShareButtonProps) {
   return (
     <button
       onClick={handleShare}
-      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-zinc-800 text-zinc-400 rounded hover:bg-zinc-700 hover:text-zinc-200 transition-colors cursor-pointer"
+      className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-zinc-800 text-zinc-400 rounded hover:bg-zinc-700 hover:text-zinc-200 transition-colors cursor-pointer"
       title="Share this release"
     >
       <svg
-        className="w-3.5 h-3.5"
+        className="w-3 h-3"
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"

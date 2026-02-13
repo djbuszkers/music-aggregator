@@ -3,6 +3,10 @@ interface YouTubeMatch {
   youtubeId: string;
 }
 
+function normalizeQuotes(s: string): string {
+  return s.replace(/[\u2018\u2019\u201A\u201B]/g, "'").replace(/[\u201C\u201D\u201E\u201F]/g, '"');
+}
+
 export async function searchVideo(artist: string, title: string): Promise<YouTubeMatch | null> {
   const apiKey = process.env.YOUTUBE_API_KEY;
   if (!apiKey) {
@@ -10,7 +14,7 @@ export async function searchVideo(artist: string, title: string): Promise<YouTub
   }
 
   const params = new URLSearchParams({
-    q: `${artist} ${title}`,
+    q: `${normalizeQuotes(artist)} ${normalizeQuotes(title)}`,
     type: "video",
     videoCategoryId: "10",
     maxResults: "1",

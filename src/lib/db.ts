@@ -85,6 +85,16 @@ export async function initDb(): Promise<void> {
     // Column already exists
   }
   try {
+    await database.execute(`ALTER TABLE releases ADD COLUMN deezer_url TEXT`);
+  } catch {
+    // Column already exists
+  }
+  try {
+    await database.execute(`ALTER TABLE releases ADD COLUMN deezer_id TEXT`);
+  } catch {
+    // Column already exists
+  }
+  try {
     await database.execute(`ALTER TABLE releases ADD COLUMN is_inky_tip INTEGER DEFAULT 0`);
   } catch {
     // Column already exists
@@ -428,6 +438,27 @@ export async function updateReleaseBandcamp(releaseId: number, bandcampUrl: stri
   await database.execute({
     sql: `UPDATE releases SET bandcamp_url = ?, bandcamp_album_id = ? WHERE id = ?`,
     args: [bandcampUrl, bandcampAlbumId, releaseId],
+  });
+}
+
+export async function getReleasesWithoutDeezer(): Promise<Release[]> {
+  await ensureInitialized();
+  const database = getDb();
+  const result = await database.execute(`
+    SELECT r.*, s.name as source_name
+    FROM releases r
+    JOIN sources s ON r.source_id = s.id
+    WHERE r.deezer_url IS NULL AND r.published_at >= '2026-01-01'
+    ORDER BY r.published_at DESC
+  `);
+  return result.rows as unknown as Release[];
+}
+
+export async function updateReleaseDeezer(releaseId: number, deezerUrl: string, deezerId: string): Promise<void> {
+  const database = getDb();
+  await database.execute({
+    sql: `UPDATE releases SET deezer_url = ?, deezer_id = ? WHERE id = ?`,
+    args: [deezerUrl, deezerId, releaseId],
   });
 }
 

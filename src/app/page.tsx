@@ -102,54 +102,57 @@ export default function Home() {
       <Header lastUpdated={lastUpdated} />
 
       <main className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
-        {/* Genre Filter */}
-        <div className="sticky top-[60px] sm:top-[100px] z-40 bg-zinc-950/95 backdrop-blur-sm -mx-4 px-4 py-3 mb-4">
-          <div className="flex flex-nowrap overflow-x-auto sm:flex-wrap gap-1.5 scrollbar-hide">
+        {/* Filters */}
+        <div className="sticky top-[60px] sm:top-[100px] z-40 bg-zinc-950/95 backdrop-blur-sm -mx-4 px-4 py-3 mb-4 space-y-2">
+          {/* Row 1: All / INKY TIPS / Release Type */}
+          <div className="flex flex-wrap justify-center gap-1.5">
             <button
               onClick={handleClearGenres}
-              className={`px-3 py-2 sm:px-2 sm:py-1 text-xs rounded-full transition-colors whitespace-nowrap flex-shrink-0 ${
-                selectedGenres.length === 0 && !inkyTipsOnly
+              className={`px-3 py-1.5 sm:px-2.5 sm:py-1 text-xs rounded-full transition-colors whitespace-nowrap flex-shrink-0 ${
+                selectedGenres.length === 0 && !inkyTipsOnly && !selectedReleaseType
                   ? "bg-white text-black font-medium"
-                  : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+                  : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
               }`}
             >
-              All Genres
+              All
             </button>
             <button
               onClick={handleInkyTipsToggle}
-              className={`px-3 py-2 sm:px-2 sm:py-1 text-xs rounded-full transition-colors whitespace-nowrap flex-shrink-0 ${
+              className={`px-3 py-1.5 sm:px-2.5 sm:py-1 text-xs rounded-full transition-colors whitespace-nowrap flex-shrink-0 ${
                 inkyTipsOnly
                   ? "bg-gradient-to-r from-purple-600 to-fuchsia-500 text-white font-bold"
-                  : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+                  : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
               }`}
             >
               🐙 INKY TIPS
             </button>
-            <span className="w-px h-5 bg-zinc-700 flex-shrink-0 hidden sm:block" />
+            <span className="w-px h-5 bg-zinc-700/50 flex-shrink-0 self-center" />
             {(["Single", "EP", "LP"] as const).map((type) => (
               <button
                 key={type}
                 onClick={() => handleReleaseTypeToggle(type)}
-                className={`px-3 py-2 sm:px-2 sm:py-1 text-xs rounded-full transition-colors whitespace-nowrap flex-shrink-0 ${
+                className={`px-3 py-1.5 sm:px-2.5 sm:py-1 text-xs rounded-full transition-colors whitespace-nowrap flex-shrink-0 ${
                   selectedReleaseType === type
-                    ? type === "Single" ? "bg-blue-900 text-blue-200 font-medium" :
-                      type === "EP" ? "bg-amber-900 text-amber-200 font-medium" :
-                      "bg-green-900 text-green-200 font-medium"
-                    : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+                    ? type === "Single" ? "bg-blue-950 text-blue-300 font-medium" :
+                      type === "EP" ? "bg-amber-950 text-amber-300 font-medium" :
+                      "bg-green-950 text-green-300 font-medium"
+                    : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
                 }`}
               >
                 {type}
               </button>
             ))}
-            <span className="w-px h-5 bg-zinc-700 flex-shrink-0 hidden sm:block" />
+          </div>
+          {/* Row 2: Genres */}
+          <div className="flex flex-wrap justify-center gap-1.5">
             {genres.map((genre) => (
               <button
                 key={genre}
                 onClick={() => handleGenreToggle(genre)}
-                className={`px-3 py-2 sm:px-2 sm:py-1 text-xs rounded-full transition-colors whitespace-nowrap flex-shrink-0 ${
+                className={`px-3 py-1.5 sm:px-2.5 sm:py-1 text-xs rounded-full transition-colors whitespace-nowrap flex-shrink-0 ${
                   selectedGenres.includes(genre)
                     ? "bg-white text-black font-medium"
-                    : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+                    : "bg-zinc-800/60 text-zinc-500 hover:bg-zinc-700 hover:text-zinc-300"
                 }`}
               >
                 {genre}

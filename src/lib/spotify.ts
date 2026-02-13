@@ -40,10 +40,16 @@ interface SpotifyMatch {
   releaseType: string | null;
 }
 
+function sanitizeForSearch(s: string): string {
+  return s
+    .replace(/[\u2018\u2019\u201A\u201B']/g, "")
+    .replace(/[\u201C\u201D\u201E\u201F"]/g, "");
+}
+
 export async function searchSpotifyAlbum(artist: string, title: string): Promise<SpotifyMatch | null> {
   const token = await getAccessToken();
 
-  const query = `artist:${artist} album:${title}`;
+  const query = `artist:${sanitizeForSearch(artist)} album:${sanitizeForSearch(title)}`;
   const params = new URLSearchParams({
     q: query,
     type: "album",
