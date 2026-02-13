@@ -173,3 +173,17 @@ export function normalizeGenre(genre: string | null | undefined): string | null 
 
   return normalized.length > 0 ? normalized.join(", ") : null;
 }
+
+export function inferReleaseTypeFromTrackCount(numTracks: number): string | null {
+  if (numTracks <= 0) return null;
+  if (numTracks <= 2) return "Single";
+  if (numTracks <= 6) return "EP";
+  return "LP";
+}
+
+export function inferReleaseTypeFromTitle(title: string): string | null {
+  if (/\bEP\b/.test(title)) return "EP";
+  if (/\bLP\b/.test(title)) return "LP";
+  if (/\bSingle\b/i.test(title)) return "Single";
+  return null;
+}

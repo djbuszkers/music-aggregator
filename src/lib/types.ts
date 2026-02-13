@@ -28,6 +28,7 @@ export interface Release {
   bandcamp_album_id: string | null;
   is_inky_tip: number | null;
   inky_tip_note: string | null;
+  release_type: string | null;
   source_name?: string;
 }
 
@@ -44,4 +45,5 @@ export interface ReleaseInput {
   raw_data?: string | null;
   bandcamp_url?: string | null;
   bandcamp_album_id?: string | null;
+  release_type?: string | null;
 }

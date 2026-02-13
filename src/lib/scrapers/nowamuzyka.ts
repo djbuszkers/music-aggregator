@@ -1,7 +1,7 @@
 import Parser from "rss-parser";
 import * as cheerio from "cheerio";
 import { getSourceByName, insertRelease, updateSourceLastFetched } from "../db";
-import { normalizeGenre } from "../utils";
+import { normalizeGenre, inferReleaseTypeFromTrackCount } from "../utils";
 import { extractBandcampAlbumId } from "../bandcamp";
 import type { ReleaseInput } from "../types";
 
@@ -49,19 +49,23 @@ function extractBandcampUrl(content: string): string | null {
   return match ? match[0] : null;
 }
 
-async function fetchBandcampData(bandcampUrl: string): Promise<{ genres: string | null; label: string | null; albumId: string | null }> {
+async function fetchBandcampData(bandcampUrl: string): Promise<{ genres: string | null; label: string | null; albumId: string | null; numTracks: number | null }> {
   const html = await fetchPage(bandcampUrl);
-  if (!html) return { genres: null, label: null, albumId: null };
+  if (!html) return { genres: null, label: null, albumId: null, numTracks: null };
 
   const $ = cheerio.load(html);
 
-  // Extract label from JSON-LD structured data
+  // Extract label and track count from JSON-LD structured data
   let label: string | null = null;
+  let numTracks: number | null = null;
   try {
     const ldJsonScript = $('script[type="application/ld+json"]').html();
     if (ldJsonScript) {
       const ldJson = JSON.parse(ldJsonScript);
       label = ldJson.albumRelease?.[0]?.recordLabel?.name || null;
+      if (typeof ldJson.numTracks === "number") {
+        numTracks = ldJson.numTracks;
+      }
     }
   } catch {
     // JSON-LD parsing failed, continue without label
@@ -85,7 +89,7 @@ async function fetchBandcampData(bandcampUrl: string): Promise<{ genres: string 
   // Extract album ID for embed player
   const albumId = extractBandcampAlbumId(html);
 
-  return { genres, label, albumId };
+  return { genres, label, albumId, numTracks };
 }
 
 function isNonGenreTag(tag: string): boolean {
@@ -202,12 +206,16 @@ export async function scrapeNowaMuzyka(): Promise<number> {
     let label: string | null = null;
     let bcUrl: string | null = null;
     let bcAlbumId: string | null = null;
+    let releaseType: string | null = null;
     const bandcampUrl = extractBandcampUrl(content);
     if (bandcampUrl) {
       console.log(`  Fetching data from ${bandcampUrl}...`);
       const bandcampData = await fetchBandcampData(bandcampUrl);
       genre = bandcampData.genres;
       label = bandcampData.label;
+      if (bandcampData.numTracks) {
+        releaseType = inferReleaseTypeFromTrackCount(bandcampData.numTracks);
+      }
       if (bandcampData.albumId) {
         bcUrl = bandcampUrl;
         bcAlbumId = bandcampData.albumId;
@@ -228,6 +236,7 @@ export async function scrapeNowaMuzyka(): Promise<number> {
       raw_data: JSON.stringify(item),
       bandcamp_url: bcUrl,
       bandcamp_album_id: bcAlbumId,
+      release_type: releaseType,
     };
 
     const inserted = await insertRelease(release);

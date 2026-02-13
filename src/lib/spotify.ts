@@ -37,6 +37,7 @@ async function getAccessToken(): Promise<string> {
 interface SpotifyMatch {
   spotifyUrl: string;
   spotifyId: string;
+  releaseType: string | null;
 }
 
 export async function searchSpotifyAlbum(artist: string, title: string): Promise<SpotifyMatch | null> {
@@ -65,8 +66,18 @@ export async function searchSpotifyAlbum(artist: string, title: string): Promise
     return null;
   }
 
+  let releaseType: string | null = null;
+  const albumType = album.album_type as string | undefined;
+  const totalTracks = album.total_tracks as number | undefined;
+  if (albumType === "single") {
+    releaseType = totalTracks && totalTracks >= 3 ? "EP" : "Single";
+  } else if (albumType === "album" || albumType === "compilation") {
+    releaseType = "LP";
+  }
+
   return {
     spotifyUrl: album.external_urls?.spotify ?? "",
     spotifyId: album.id,
+    releaseType,
   };
 }

@@ -28,8 +28,9 @@ export default function Home() {
   const [genres, setGenres] = useState<string[]>([]);
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [inkyTipsOnly, setInkyTipsOnly] = useState(false);
+  const [selectedReleaseType, setSelectedReleaseType] = useState<string | null>(null);
 
-  const fetchReleases = useCallback(async (page: number = 1, genres_filter: string[] = [], inkyTips: boolean = false) => {
+  const fetchReleases = useCallback(async (page: number = 1, genres_filter: string[] = [], inkyTips: boolean = false, releaseType: string | null = null) => {
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
@@ -39,6 +40,9 @@ export default function Home() {
       }
       if (inkyTips) {
         params.set("inky_tips_only", "true");
+      }
+      if (releaseType) {
+        params.set("release_type", releaseType);
       }
 
       const response = await fetch(`/api/releases?${params}`);
@@ -56,11 +60,11 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    fetchReleases(1, selectedGenres, inkyTipsOnly);
-  }, [fetchReleases, selectedGenres, inkyTipsOnly]);
+    fetchReleases(1, selectedGenres, inkyTipsOnly, selectedReleaseType);
+  }, [fetchReleases, selectedGenres, inkyTipsOnly, selectedReleaseType]);
 
   const handlePageChange = (page: number) => {
-    fetchReleases(page, selectedGenres, inkyTipsOnly);
+    fetchReleases(page, selectedGenres, inkyTipsOnly, selectedReleaseType);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -74,6 +78,12 @@ export default function Home() {
   const handleClearGenres = () => {
     setSelectedGenres([]);
     setInkyTipsOnly(false);
+    setSelectedReleaseType(null);
+    setCurrentPage(1);
+  };
+
+  const handleReleaseTypeToggle = (type: string) => {
+    setSelectedReleaseType((prev) => prev === type ? null : type);
     setCurrentPage(1);
   };
 
@@ -115,6 +125,23 @@ export default function Home() {
             >
               🐙 INKY TIPS
             </button>
+            <span className="w-px h-5 bg-zinc-700 flex-shrink-0 hidden sm:block" />
+            {(["Single", "EP", "LP"] as const).map((type) => (
+              <button
+                key={type}
+                onClick={() => handleReleaseTypeToggle(type)}
+                className={`px-3 py-2 sm:px-2 sm:py-1 text-xs rounded-full transition-colors whitespace-nowrap flex-shrink-0 ${
+                  selectedReleaseType === type
+                    ? type === "Single" ? "bg-blue-900 text-blue-200 font-medium" :
+                      type === "EP" ? "bg-amber-900 text-amber-200 font-medium" :
+                      "bg-green-900 text-green-200 font-medium"
+                    : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+                }`}
+              >
+                {type}
+              </button>
+            ))}
+            <span className="w-px h-5 bg-zinc-700 flex-shrink-0 hidden sm:block" />
             {genres.map((genre) => (
               <button
                 key={genre}

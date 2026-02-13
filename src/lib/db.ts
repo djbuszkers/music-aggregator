@@ -94,6 +94,11 @@ export async function initDb(): Promise<void> {
   } catch {
     // Column already exists
   }
+  try {
+    await database.execute(`ALTER TABLE releases ADD COLUMN release_type TEXT`);
+  } catch {
+    // Column already exists
+  }
 
   await database.execute(`CREATE INDEX IF NOT EXISTS idx_releases_published_at ON releases(published_at DESC)`);
   await database.execute(`CREATE INDEX IF NOT EXISTS idx_releases_source_id ON releases(source_id)`);
@@ -151,7 +156,7 @@ export async function updateSourceLastFetched(sourceId: number): Promise<void> {
   });
 }
 
-export async function getReleases(sourceId?: number, limit = 15, offset = 0, genres?: string[], inkyTipsOnly?: boolean): Promise<Release[]> {
+export async function getReleases(sourceId?: number, limit = 15, offset = 0, genres?: string[], inkyTipsOnly?: boolean, releaseType?: string): Promise<Release[]> {
   await ensureInitialized();
   const database = getDb();
   let query = `
@@ -179,6 +184,11 @@ export async function getReleases(sourceId?: number, limit = 15, offset = 0, gen
     query += " AND r.is_inky_tip = 1";
   }
 
+  if (releaseType) {
+    query += " AND r.release_type = ?";
+    args.push(releaseType);
+  }
+
   query += " ORDER BY r.published_at DESC LIMIT ? OFFSET ?";
   args.push(limit, offset);
 
@@ -186,7 +196,7 @@ export async function getReleases(sourceId?: number, limit = 15, offset = 0, gen
   return result.rows as unknown as Release[];
 }
 
-export async function getTotalReleases(sourceId?: number, genres?: string[], inkyTipsOnly?: boolean): Promise<number> {
+export async function getTotalReleases(sourceId?: number, genres?: string[], inkyTipsOnly?: boolean, releaseType?: string): Promise<number> {
   await ensureInitialized();
   const database = getDb();
   let query = `
@@ -211,6 +221,11 @@ export async function getTotalReleases(sourceId?: number, genres?: string[], ink
 
   if (inkyTipsOnly) {
     query += " AND r.is_inky_tip = 1";
+  }
+
+  if (releaseType) {
+    query += " AND r.release_type = ?";
+    args.push(releaseType);
   }
 
   const result = await database.execute({ sql: query, args });
@@ -256,7 +271,8 @@ export async function insertRelease(release: ReleaseInput): Promise<boolean> {
       await database.execute({
         sql: `
           UPDATE releases SET source_id = ?, artist = ?, title = ?, label = ?, genre = ?, cover_image = ?, review_url = ?, review_snippet = ?, published_at = ?, raw_data = ?,
-          bandcamp_url = COALESCE(?, bandcamp_url), bandcamp_album_id = COALESCE(?, bandcamp_album_id)
+          bandcamp_url = COALESCE(?, bandcamp_url), bandcamp_album_id = COALESCE(?, bandcamp_album_id),
+          release_type = COALESCE(?, release_type)
           WHERE id = ?
         `,
         args: [
@@ -272,6 +288,7 @@ export async function insertRelease(release: ReleaseInput): Promise<boolean> {
           release.raw_data ?? null,
           release.bandcamp_url ?? null,
           release.bandcamp_album_id ?? null,
+          release.release_type ?? null,
           existing.rows[0].id,
         ],
       });
@@ -293,6 +310,10 @@ export async function insertRelease(release: ReleaseInput): Promise<boolean> {
       backfills.push("bandcamp_album_id = COALESCE(bandcamp_album_id, ?)");
       backfillArgs.push(release.bandcamp_album_id);
     }
+    if (release.release_type) {
+      backfills.push("release_type = COALESCE(release_type, ?)");
+      backfillArgs.push(release.release_type);
+    }
     if (backfills.length > 0) {
       backfillArgs.push(existing.rows[0].id as number);
       await database.execute({
@@ -306,8 +327,8 @@ export async function insertRelease(release: ReleaseInput): Promise<boolean> {
   try {
     await database.execute({
       sql: `
-        INSERT INTO releases (source_id, artist, title, label, genre, cover_image, review_url, review_snippet, published_at, raw_data, bandcamp_url, bandcamp_album_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO releases (source_id, artist, title, label, genre, cover_image, review_url, review_snippet, published_at, raw_data, bandcamp_url, bandcamp_album_id, release_type)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       args: [
         release.source_id,
@@ -322,6 +343,7 @@ export async function insertRelease(release: ReleaseInput): Promise<boolean> {
         release.raw_data ?? null,
         release.bandcamp_url ?? null,
         release.bandcamp_album_id ?? null,
+        release.release_type ?? null,
       ],
     });
     return true;
@@ -359,11 +381,11 @@ export async function getReleasesWithoutSpotify(): Promise<Release[]> {
   return result.rows as unknown as Release[];
 }
 
-export async function updateReleaseSpotify(releaseId: number, spotifyUrl: string, spotifyId: string): Promise<void> {
+export async function updateReleaseSpotify(releaseId: number, spotifyUrl: string, spotifyId: string, releaseType?: string | null): Promise<void> {
   const database = getDb();
   await database.execute({
-    sql: `UPDATE releases SET spotify_url = ?, spotify_id = ? WHERE id = ?`,
-    args: [spotifyUrl, spotifyId, releaseId],
+    sql: `UPDATE releases SET spotify_url = ?, spotify_id = ?, release_type = COALESCE(?, release_type) WHERE id = ?`,
+    args: [spotifyUrl, spotifyId, releaseType ?? null, releaseId],
   });
 }
 
@@ -406,6 +428,27 @@ export async function updateReleaseBandcamp(releaseId: number, bandcampUrl: stri
   await database.execute({
     sql: `UPDATE releases SET bandcamp_url = ?, bandcamp_album_id = ? WHERE id = ?`,
     args: [bandcampUrl, bandcampAlbumId, releaseId],
+  });
+}
+
+export async function getReleasesWithoutReleaseType(): Promise<Release[]> {
+  await ensureInitialized();
+  const database = getDb();
+  const result = await database.execute(`
+    SELECT r.*, s.name as source_name
+    FROM releases r
+    JOIN sources s ON r.source_id = s.id
+    WHERE r.release_type IS NULL AND r.published_at >= '2026-01-01'
+    ORDER BY r.published_at DESC
+  `);
+  return result.rows as unknown as Release[];
+}
+
+export async function updateReleaseType(releaseId: number, releaseType: string): Promise<void> {
+  const database = getDb();
+  await database.execute({
+    sql: `UPDATE releases SET release_type = ? WHERE id = ?`,
+    args: [releaseType, releaseId],
   });
 }
 

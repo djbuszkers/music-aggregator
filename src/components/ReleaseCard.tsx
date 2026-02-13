@@ -52,6 +52,15 @@ export function ReleaseCard({ release }: ReleaseCardProps) {
               )}
             </div>
             <div className="flex items-center gap-3 flex-shrink-0">
+              {release.release_type && (
+                <span className={`px-2 py-0.5 text-xs font-medium rounded ${
+                  release.release_type === "Single" ? "bg-blue-900 text-blue-200" :
+                  release.release_type === "EP" ? "bg-amber-900 text-amber-200" :
+                  "bg-green-900 text-green-200"
+                }`}>
+                  {release.release_type}
+                </span>
+              )}
               {release.is_inky_tip ? (
                 <span className="px-2 py-0.5 text-xs font-bold bg-gradient-to-r from-purple-600 to-fuchsia-500 text-white rounded">
                   🐙 INKY TIP

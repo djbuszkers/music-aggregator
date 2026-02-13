@@ -1,6 +1,6 @@
 import * as cheerio from "cheerio";
 import { getSourceByName, insertRelease, updateSourceLastFetched } from "../db";
-import { normalizeGenre } from "../utils";
+import { normalizeGenre, inferReleaseTypeFromTrackCount } from "../utils";
 import { extractBandcampAlbumId } from "../bandcamp";
 import type { ReleaseInput } from "../types";
 
@@ -40,28 +40,32 @@ function parseDate(text: string): string {
   return new Date().toISOString();
 }
 
-async function fetchBandcampAlbumData(bandcampUrl: string): Promise<{ label: string | null; albumId: string | null }> {
+async function fetchBandcampAlbumData(bandcampUrl: string): Promise<{ label: string | null; albumId: string | null; numTracks: number | null }> {
   try {
     const response = await fetch(bandcampUrl);
-    if (!response.ok) return { label: null, albumId: null };
+    if (!response.ok) return { label: null, albumId: null, numTracks: null };
 
     const html = await response.text();
     const $ = cheerio.load(html);
 
     let label: string | null = null;
+    let numTracks: number | null = null;
     const ldJsonScript = $('script[type="application/ld+json"]').html();
     if (ldJsonScript) {
       const ldJson = JSON.parse(ldJsonScript);
       label = ldJson.albumRelease?.[0]?.recordLabel?.name || null;
+      if (typeof ldJson.numTracks === "number") {
+        numTracks = ldJson.numTracks;
+      }
     }
 
     const albumId = extractBandcampAlbumId(html);
 
-    return { label, albumId };
+    return { label, albumId, numTracks };
   } catch {
     // Failed to fetch or parse
   }
-  return { label: null, albumId: null };
+  return { label: null, albumId: null, numTracks: null };
 }
 
 function findBestBandcampUrl(html: string, albumTitle: string): string | null {
@@ -84,10 +88,10 @@ function findBestBandcampUrl(html: string, albumTitle: string): string | null {
   return urls[0];
 }
 
-async function fetchPageData(url: string, albumTitle: string): Promise<{ genre: string | null; description: string | null; label: string | null; bandcampUrl: string | null; bandcampAlbumId: string | null }> {
+async function fetchPageData(url: string, albumTitle: string): Promise<{ genre: string | null; description: string | null; label: string | null; bandcampUrl: string | null; bandcampAlbumId: string | null; releaseType: string | null }> {
   try {
     const response = await fetch(url);
-    if (!response.ok) return { genre: null, description: null, label: null, bandcampUrl: null, bandcampAlbumId: null };
+    if (!response.ok) return { genre: null, description: null, label: null, bandcampUrl: null, bandcampAlbumId: null, releaseType: null };
 
     const html = await response.text();
     const $ = cheerio.load(html);
@@ -110,19 +114,23 @@ async function fetchPageData(url: string, albumTitle: string): Promise<{ genre: 
     // Find the best matching Bandcamp album URL and fetch label + album ID
     let label: string | null = null;
     let bandcampAlbumId: string | null = null;
+    let releaseType: string | null = null;
     const bandcampUrl = findBestBandcampUrl(html, albumTitle);
     if (bandcampUrl) {
       const albumData = await fetchBandcampAlbumData(bandcampUrl);
       label = albumData.label;
       bandcampAlbumId = albumData.albumId;
+      if (albumData.numTracks) {
+        releaseType = inferReleaseTypeFromTrackCount(albumData.numTracks);
+      }
       if (bandcampAlbumId) {
         console.log(`  Found Bandcamp album ID: ${bandcampAlbumId}`);
       }
     }
 
-    return { genre, description, label, bandcampUrl, bandcampAlbumId };
+    return { genre, description, label, bandcampUrl, bandcampAlbumId, releaseType };
   } catch (err) {
-    return { genre: null, description: null, label: null, bandcampUrl: null, bandcampAlbumId: null };
+    return { genre: null, description: null, label: null, bandcampUrl: null, bandcampAlbumId: null, releaseType: null };
   }
 }
 
@@ -191,7 +199,7 @@ export async function scrapeBandcamp(): Promise<number> {
       continue;
     }
 
-    const { genre, description, label, bandcampUrl, bandcampAlbumId } = await fetchPageData(release.reviewUrl, release.title);
+    const { genre, description, label, bandcampUrl, bandcampAlbumId, releaseType } = await fetchPageData(release.reviewUrl, release.title);
 
     const releaseInput: ReleaseInput = {
       source_id: source.id,
@@ -205,6 +213,7 @@ export async function scrapeBandcamp(): Promise<number> {
       published_at: release.publishedAt,
       bandcamp_url: bandcampUrl,
       bandcamp_album_id: bandcampAlbumId,
+      release_type: releaseType,
     };
 
     try {

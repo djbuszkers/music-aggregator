@@ -5,9 +5,10 @@ import { scrapeRA } from "@/lib/scrapers/ra";
 import { scrapeBoomkat } from "@/lib/scrapers/boomkat";
 import { scrapeInvertedAudio } from "@/lib/scrapers/inverted-audio";
 import { scrapeShatterTheStandards } from "@/lib/scrapers/shatter-the-standards";
-import { getReleasesWithoutSpotify, updateReleaseSpotify, getReleasesWithoutYouTube, updateReleaseYouTube } from "@/lib/db";
+import { getReleasesWithoutSpotify, updateReleaseSpotify, getReleasesWithoutYouTube, updateReleaseYouTube, getReleasesWithoutReleaseType, updateReleaseType } from "@/lib/db";
 import { searchSpotifyAlbum } from "@/lib/spotify";
 import { searchVideo } from "@/lib/youtube";
+import { inferReleaseTypeFromTitle } from "@/lib/utils";
 
 export const maxDuration = 300;
 
@@ -78,7 +79,7 @@ async function handleRefresh() {
         try {
           const match = await searchSpotifyAlbum(release.artist, release.title);
           if (match?.spotifyUrl) {
-            await updateReleaseSpotify(release.id, match.spotifyUrl, match.spotifyId);
+            await updateReleaseSpotify(release.id, match.spotifyUrl, match.spotifyId, match.releaseType);
             spotifyMatched++;
           }
           await new Promise((resolve) => setTimeout(resolve, 300));
@@ -113,11 +114,30 @@ async function handleRefresh() {
       console.error("Error during YouTube matching:", error);
     }
 
+    // Infer release type from title for releases still missing it
+    let titleTypeMatched = 0;
+    try {
+      const noType = await getReleasesWithoutReleaseType();
+      for (const release of noType) {
+        const inferred = inferReleaseTypeFromTitle(release.title);
+        if (inferred) {
+          await updateReleaseType(release.id, inferred);
+          titleTypeMatched++;
+        }
+      }
+      if (titleTypeMatched > 0) {
+        console.log(`Release type from title: matched ${titleTypeMatched}/${noType.length}`);
+      }
+    } catch (error) {
+      console.error("Error during title release type inference:", error);
+    }
+
     return NextResponse.json({
       success: true,
       newReleases: results,
       streaming: { spotifyMatched, youtubeMatched },
-      message: `Added ${results.total} new release(s), matched ${spotifyMatched} Spotify + ${youtubeMatched} YouTube`,
+      releaseTypeMatched: titleTypeMatched,
+      message: `Added ${results.total} new release(s), matched ${spotifyMatched} Spotify + ${youtubeMatched} YouTube, ${titleTypeMatched} release types from title`,
     });
   } catch (error) {
     console.error("Error during refresh:", error);
