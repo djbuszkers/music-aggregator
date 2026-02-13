@@ -454,6 +454,27 @@ export async function getReleasesWithoutDeezer(): Promise<Release[]> {
   return result.rows as unknown as Release[];
 }
 
+export async function getReleasesWithoutLabel(): Promise<Release[]> {
+  await ensureInitialized();
+  const database = getDb();
+  const result = await database.execute(`
+    SELECT r.*, s.name as source_name
+    FROM releases r
+    JOIN sources s ON r.source_id = s.id
+    WHERE (r.label IS NULL OR r.label = '') AND r.published_at >= '2026-01-01'
+    ORDER BY r.published_at DESC
+  `);
+  return result.rows as unknown as Release[];
+}
+
+export async function updateReleaseLabel(releaseId: number, label: string): Promise<void> {
+  const database = getDb();
+  await database.execute({
+    sql: `UPDATE releases SET label = ? WHERE id = ? AND (label IS NULL OR label = '')`,
+    args: [label, releaseId],
+  });
+}
+
 export async function updateReleaseDeezer(releaseId: number, deezerUrl: string, deezerId: string): Promise<void> {
   const database = getDb();
   await database.execute({

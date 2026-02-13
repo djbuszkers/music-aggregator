@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server";
+import type { Release } from "@/lib/types";
 import { scrapeNowaMuzyka } from "@/lib/scrapers/nowamuzyka";
 import { scrapeBandcamp } from "@/lib/scrapers/bandcamp";
 import { scrapeRA } from "@/lib/scrapers/ra";
 import { scrapeBoomkat } from "@/lib/scrapers/boomkat";
 import { scrapeInvertedAudio } from "@/lib/scrapers/inverted-audio";
 import { scrapeShatterTheStandards } from "@/lib/scrapers/shatter-the-standards";
-import { getReleasesWithoutSpotify, updateReleaseSpotify, getReleasesWithoutYouTube, updateReleaseYouTube, getReleasesWithoutDeezer, updateReleaseDeezer, getReleasesWithoutReleaseType, updateReleaseType } from "@/lib/db";
+import { getReleasesWithoutSpotify, updateReleaseSpotify, getReleasesWithoutYouTube, updateReleaseYouTube, getReleasesWithoutDeezer, updateReleaseDeezer, getReleasesWithoutReleaseType, updateReleaseType, getReleasesWithoutLabel, updateReleaseLabel } from "@/lib/db";
 import { searchSpotifyAlbum } from "@/lib/spotify";
 import { searchVideo } from "@/lib/youtube";
-import { searchDeezerAlbum, getDeezerReleaseType } from "@/lib/deezer";
+import { searchDeezerAlbum, getDeezerAlbumDetails } from "@/lib/deezer";
 import { inferReleaseTypeFromTitle } from "@/lib/utils";
 
 export const maxDuration = 300;
@@ -137,29 +138,44 @@ async function handleRefresh() {
       console.error("Error during Deezer matching:", error);
     }
 
-    // Infer release type from Deezer for releases with deezer_id but no release_type
+    // Backfill labels and release types from Deezer album details
     let deezerTypeMatched = 0;
+    let deezerLabelMatched = 0;
     try {
       const noType = await getReleasesWithoutReleaseType();
-      const withDeezer = noType.filter((r) => r.deezer_id);
-      console.log(`Checking Deezer release type for ${withDeezer.length} releases...`);
-      for (const release of withDeezer) {
+      const noLabel = await getReleasesWithoutLabel();
+      // Build set of release IDs needing data, all must have deezer_id
+      const needsType = new Set(noType.filter((r) => r.deezer_id).map((r) => r.id));
+      const needsLabel = new Set(noLabel.filter((r) => r.deezer_id).map((r) => r.id));
+      const allIds = new Set([...needsType, ...needsLabel]);
+      // Build a map of id -> release for lookup
+      const releaseMap = new Map<number, Release>();
+      for (const r of [...noType, ...noLabel]) {
+        if (r.deezer_id && allIds.has(r.id)) releaseMap.set(r.id, r);
+      }
+      console.log(`Fetching Deezer details for ${releaseMap.size} releases (type: ${needsType.size}, label: ${needsLabel.size})...`);
+      for (const [id, release] of releaseMap) {
         try {
-          const releaseType = await getDeezerReleaseType(release.deezer_id!);
-          if (releaseType) {
-            await updateReleaseType(release.id, releaseType);
-            deezerTypeMatched++;
+          const details = await getDeezerAlbumDetails(release.deezer_id!);
+          if (details) {
+            if (details.releaseType && needsType.has(id)) {
+              await updateReleaseType(id, details.releaseType);
+              deezerTypeMatched++;
+            }
+            if (details.label && needsLabel.has(id)) {
+              await updateReleaseLabel(id, details.label);
+              deezerLabelMatched++;
+            }
           }
           await new Promise((resolve) => setTimeout(resolve, 300));
         } catch (error) {
-          console.error(`Deezer type error for ${release.artist} - ${release.title}:`, error);
+          console.error(`Deezer details error for ${release.artist} - ${release.title}:`, error);
         }
       }
-      if (deezerTypeMatched > 0) {
-        console.log(`Release type from Deezer: matched ${deezerTypeMatched}/${withDeezer.length}`);
-      }
+      if (deezerTypeMatched > 0) console.log(`Release type from Deezer: ${deezerTypeMatched}`);
+      if (deezerLabelMatched > 0) console.log(`Labels from Deezer: ${deezerLabelMatched}`);
     } catch (error) {
-      console.error("Error during Deezer release type inference:", error);
+      console.error("Error during Deezer details backfill:", error);
     }
 
     // Infer release type from title for releases still missing it
@@ -185,7 +201,8 @@ async function handleRefresh() {
       newReleases: results,
       streaming: { spotifyMatched, youtubeMatched, deezerMatched },
       releaseTypeMatched: { deezer: deezerTypeMatched, title: titleTypeMatched },
-      message: `Added ${results.total} new release(s), matched ${spotifyMatched} Spotify + ${youtubeMatched} YouTube + ${deezerMatched} Deezer, release types: ${deezerTypeMatched} from Deezer + ${titleTypeMatched} from title`,
+      labelsFromDeezer: deezerLabelMatched,
+      message: `Added ${results.total} new release(s), matched ${spotifyMatched} Spotify + ${youtubeMatched} YouTube + ${deezerMatched} Deezer, release types: ${deezerTypeMatched} from Deezer + ${titleTypeMatched} from title, labels: ${deezerLabelMatched} from Deezer`,
     });
   } catch (error) {
     console.error("Error during refresh:", error);

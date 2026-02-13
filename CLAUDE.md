@@ -37,6 +37,7 @@ TURSO_AUTH_TOKEN=<token>
 SPOTIFY_CLIENT_ID=<spotify-app-client-id>
 SPOTIFY_CLIENT_SECRET=<spotify-app-client-secret>
 YOUTUBE_API_KEY=<youtube-data-api-v3-key>
+# Note: Deezer requires NO API key or authentication
 ```
 
 ## Architecture
@@ -68,7 +69,8 @@ src/
 │       ├── releases/[id]/route.ts    # GET single release by ID
 │       ├── releases/[id]/inky-tip/route.ts  # POST toggle INKY TIP status
 │       ├── refresh/route.ts  # POST triggers all scrapers
-│       └── spotify-match/route.ts  # GET Spotify album match by artist+title
+│       ├── spotify-match/route.ts  # POST Spotify album match by artist+title
+│       └── deezer-match/route.ts  # POST Deezer album match by artist+title
 ├── components/
 │   ├── Header.tsx            # Logo + last updated
 │   ├── ReleaseCard.tsx       # Card linking to release page, with streaming & share buttons
@@ -79,8 +81,9 @@ src/
     ├── types.ts              # TypeScript interfaces
     ├── utils.ts              # Genre normalization
     ├── bandcamp.ts           # Bandcamp album ID extraction + embed URL
-    ├── spotify.ts            # Spotify API client (album search)
+    ├── spotify.ts            # Spotify API client (album search, sanitizes quotes)
     ├── youtube.ts            # YouTube Data API client (music video search)
+    ├── deezer.ts             # Deezer API client (album search + release type, no auth needed)
     └── scrapers/
         ├── nowamuzyka.ts     # RSS + Bandcamp data (genres, labels)
         ├── bandcamp.ts       # Cheerio + Bandcamp data (labels)
@@ -98,11 +101,11 @@ All database functions are **async** and auto-initialize tables on first call.
 
 **Tables:**
 - `sources` - Source metadata (name, url, scraper_type, last_fetched)
-- `releases` - Reviews with artist, title, label, genre, cover_image, review_url, review_snippet, published_at, spotify_url, spotify_id, youtube_url, youtube_id, bandcamp_url, bandcamp_album_id, is_inky_tip, inky_tip_note
+- `releases` - Reviews with artist, title, label, genre, cover_image, review_url, review_snippet, published_at, spotify_url, spotify_id, youtube_url, youtube_id, bandcamp_url, bandcamp_album_id, deezer_url, deezer_id, is_inky_tip, inky_tip_note, release_type
 
 **Key functions in db.ts:**
 - `getSources()` / `getSourceByName(name)`
-- `getReleases(sourceId?, limit, offset, genres?, inkyTipsOnly?)` / `getReleaseById(id)`
+- `getReleases(sourceId?, limit, offset, genres?, inkyTipsOnly?, releaseType?)` / `getReleaseById(id)`
 - `insertRelease(release)` - Deduplicates cross-source releases by artist+title (case-insensitive); keeps the release with the longer review_snippet. Backfills missing labels and bandcamp data on existing releases during dedup. Also returns false on same-URL duplicates (UNIQUE constraint on review_url)
 
 ## Deployment
@@ -126,6 +129,8 @@ All database functions are **async** and auto-initialize tables on first call.
 - **Spotify:** Release cards link to matching Spotify albums. Uses Client Credentials flow (`spotify.ts`) with token caching. API endpoint at `/api/spotify-match` for on-demand lookups. Matched data stored in `spotify_url` and `spotify_id` columns.
 - **YouTube Music:** Release cards link to matching YouTube Music videos. Uses YouTube Data API v3 (`youtube.ts`), filtered to music category. Matched data stored in `youtube_url` and `youtube_id` columns.
 - **Bandcamp:** Embedded player on release pages for albums with Bandcamp data. Album IDs extracted during scraping from Nowa Muzyka and Bandcamp Daily sources (`bandcamp.ts`). Data stored in `bandcamp_url` and `bandcamp_album_id` columns. Release cards also show a Bandcamp button linking to the album page.
+- **Deezer:** No authentication required (free public API). Uses `/search/album` endpoint with `artist:"X" album:"Y"` query syntax. Also provides release type inference via `record_type` field from `/album/{id}` endpoint. Matched data stored in `deezer_url` and `deezer_id` columns. API endpoint at `/api/deezer-match` for batch matching.
+- **Search query sanitization:** All streaming API clients (Spotify, YouTube, Deezer) strip or normalize curly/straight apostrophes and quotes from search queries, as these characters break field-based search syntax (especially Spotify's `artist:` / `album:` filters).
 
 ### Individual Release Pages
 
@@ -137,8 +142,11 @@ All database functions are **async** and auto-initialize tables on first call.
 
 ### Genre Filtering
 
-- Homepage supports multi-select genre filtering with OR logic (selecting multiple genres shows releases matching any of them)
-- Streaming service buttons (Spotify, YouTube, Bandcamp) displayed on a separate row below the title line on release cards
+- Filters split into two centered rows: top row has All/INKY TIPS/release type (Single, EP, LP); bottom row has genre buttons
+- Genre filtering supports multi-select with OR logic (selecting multiple genres shows releases matching any of them)
+- Genre buttons wrap on mobile; all filters are center-aligned
+- Streaming service buttons (Spotify, YouTube, Bandcamp, Deezer) displayed on a separate row below the title line on release cards
+- Release type classification: inferred from Spotify (`album_type` + `total_tracks`), then Deezer (`record_type`), then title heuristic as fallback. Stored in `release_type` column (Single / EP / LP)
 
 ### INKY TIP (Curator Picks)
 

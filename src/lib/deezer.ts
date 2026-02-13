@@ -2,12 +2,18 @@ interface DeezerAlbum {
   id: number;
   title: string;
   link: string;
+  label?: string;
   record_type?: string;
   nb_tracks?: number;
   artist: {
     id: number;
     name: string;
   };
+}
+
+export interface DeezerAlbumDetails {
+  label: string | null;
+  releaseType: string | null;
 }
 
 interface DeezerSearchResponse {
@@ -57,23 +63,28 @@ export async function searchDeezerAlbum(
   }
 }
 
-export async function getDeezerReleaseType(deezerId: string): Promise<string | null> {
+export async function getDeezerAlbumDetails(deezerId: string): Promise<DeezerAlbumDetails | null> {
   try {
     const response = await fetch(`https://api.deezer.com/album/${deezerId}`);
     if (!response.ok) return null;
 
     const data: DeezerAlbum = await response.json();
+
+    let releaseType: string | null = null;
     const recordType = data.record_type;
     const nbTracks = data.nb_tracks ?? 0;
-
     if (recordType === "single") {
-      return nbTracks >= 3 ? "EP" : "Single";
+      releaseType = nbTracks >= 3 ? "EP" : "Single";
     } else if (recordType === "ep") {
-      return "EP";
+      releaseType = "EP";
     } else if (recordType === "album") {
-      return "LP";
+      releaseType = "LP";
     }
-    return null;
+
+    return {
+      label: data.label || null,
+      releaseType,
+    };
   } catch (error) {
     console.error("Error fetching Deezer album:", error);
     return null;
