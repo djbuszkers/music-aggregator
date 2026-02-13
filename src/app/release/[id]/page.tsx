@@ -102,10 +102,20 @@ export default async function ReleasePage({
           {/* Release info */}
           <div className="flex flex-col justify-between py-1">
             <div>
-              <h1 className="text-2xl font-bold text-white">
-                {release.artist}
-              </h1>
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-bold text-white">
+                  {release.artist}
+                </h1>
+                {release.is_inky_tip ? (
+                  <span className="px-2.5 py-1 text-xs font-bold bg-gradient-to-r from-purple-600 to-fuchsia-500 text-white rounded">
+                    🐙 INKY TIP
+                  </span>
+                ) : null}
+              </div>
               <p className="text-xl text-zinc-400 mt-1">{release.title}</p>
+              {release.inky_tip_note && (
+                <p className="text-sm text-purple-300 mt-2 italic">&ldquo;{release.inky_tip_note}&rdquo;</p>
+              )}
               {release.label && (
                 <p className="text-sm text-zinc-500 mt-2">{release.label}</p>
               )}

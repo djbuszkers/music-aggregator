@@ -84,6 +84,16 @@ export async function initDb(): Promise<void> {
   } catch {
     // Column already exists
   }
+  try {
+    await database.execute(`ALTER TABLE releases ADD COLUMN is_inky_tip INTEGER DEFAULT 0`);
+  } catch {
+    // Column already exists
+  }
+  try {
+    await database.execute(`ALTER TABLE releases ADD COLUMN inky_tip_note TEXT`);
+  } catch {
+    // Column already exists
+  }
 
   await database.execute(`CREATE INDEX IF NOT EXISTS idx_releases_published_at ON releases(published_at DESC)`);
   await database.execute(`CREATE INDEX IF NOT EXISTS idx_releases_source_id ON releases(source_id)`);
@@ -141,7 +151,7 @@ export async function updateSourceLastFetched(sourceId: number): Promise<void> {
   });
 }
 
-export async function getReleases(sourceId?: number, limit = 15, offset = 0, genres?: string[]): Promise<Release[]> {
+export async function getReleases(sourceId?: number, limit = 15, offset = 0, genres?: string[], inkyTipsOnly?: boolean): Promise<Release[]> {
   await ensureInitialized();
   const database = getDb();
   let query = `
@@ -165,6 +175,10 @@ export async function getReleases(sourceId?: number, limit = 15, offset = 0, gen
     }
   }
 
+  if (inkyTipsOnly) {
+    query += " AND r.is_inky_tip = 1";
+  }
+
   query += " ORDER BY r.published_at DESC LIMIT ? OFFSET ?";
   args.push(limit, offset);
 
@@ -172,7 +186,7 @@ export async function getReleases(sourceId?: number, limit = 15, offset = 0, gen
   return result.rows as unknown as Release[];
 }
 
-export async function getTotalReleases(sourceId?: number, genres?: string[]): Promise<number> {
+export async function getTotalReleases(sourceId?: number, genres?: string[], inkyTipsOnly?: boolean): Promise<number> {
   await ensureInitialized();
   const database = getDb();
   let query = `
@@ -193,6 +207,10 @@ export async function getTotalReleases(sourceId?: number, genres?: string[]): Pr
     for (const g of genres) {
       args.push(`%${g}%`);
     }
+  }
+
+  if (inkyTipsOnly) {
+    query += " AND r.is_inky_tip = 1";
   }
 
   const result = await database.execute({ sql: query, args });

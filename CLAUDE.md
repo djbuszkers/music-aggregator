@@ -59,11 +59,14 @@ src/
 │   ├── layout.tsx            # App layout
 │   ├── icon.svg              # Favicon (vinyl record)
 │   ├── globals.css           # Tailwind styles
+│   ├── admin/
+│   │   └── page.tsx          # Admin page for managing INKY TIPs
 │   ├── release/
 │   │   └── [id]/page.tsx     # Individual release page with OG meta tags
 │   └── api/
 │       ├── releases/route.ts # GET releases with pagination/filtering
-│       ├── releases/[id]/route.ts  # GET single release by ID
+│       ├── releases/[id]/route.ts    # GET single release by ID
+│       ├── releases/[id]/inky-tip/route.ts  # POST toggle INKY TIP status
 │       ├── refresh/route.ts  # POST triggers all scrapers
 │       └── spotify-match/route.ts  # GET Spotify album match by artist+title
 ├── components/
@@ -95,11 +98,11 @@ All database functions are **async** and auto-initialize tables on first call.
 
 **Tables:**
 - `sources` - Source metadata (name, url, scraper_type, last_fetched)
-- `releases` - Reviews with artist, title, label, genre, cover_image, review_url, review_snippet, published_at, spotify_url, spotify_id, youtube_url, youtube_id, bandcamp_url, bandcamp_album_id
+- `releases` - Reviews with artist, title, label, genre, cover_image, review_url, review_snippet, published_at, spotify_url, spotify_id, youtube_url, youtube_id, bandcamp_url, bandcamp_album_id, is_inky_tip, inky_tip_note
 
 **Key functions in db.ts:**
 - `getSources()` / `getSourceByName(name)`
-- `getReleases(sourceId?, limit, offset, genres?)` / `getReleaseById(id)`
+- `getReleases(sourceId?, limit, offset, genres?, inkyTipsOnly?)` / `getReleaseById(id)`
 - `insertRelease(release)` - Deduplicates cross-source releases by artist+title (case-insensitive); keeps the release with the longer review_snippet. Backfills missing labels and bandcamp data on existing releases during dedup. Also returns false on same-URL duplicates (UNIQUE constraint on review_url)
 
 ## Deployment
@@ -136,6 +139,17 @@ All database functions are **async** and auto-initialize tables on first call.
 
 - Homepage supports multi-select genre filtering with OR logic (selecting multiple genres shows releases matching any of them)
 - Streaming service buttons (Spotify, YouTube, Bandcamp) displayed on a separate row below the title line on release cards
+
+### INKY TIP (Curator Picks)
+
+- Releases can be manually flagged as "INKY TIP" via the admin page at `/admin`
+- Two DB columns: `is_inky_tip` (INTEGER, 0/1) and `inky_tip_note` (TEXT, optional curator note)
+- Purple gradient badge with octopus emoji shown on ReleaseCard and release detail page when flagged
+- Curator note displayed in italic on the release detail page when present
+- Homepage has an "INKY TIPS" toggle button in the filter bar (clears genre filters when activated)
+- API supports `inky_tips_only=true` query param on `/api/releases`
+- Toggle API: `POST /api/releases/[id]/inky-tip` with `{ is_inky_tip: boolean, inky_tip_note?: string }`
+- Admin page (`/admin`) lists all releases with toggle buttons; uses browser `prompt()` for curator notes
 
 ## Common Tasks
 

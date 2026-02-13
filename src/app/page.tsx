@@ -27,14 +27,18 @@ export default function Home() {
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [genres, setGenres] = useState<string[]>([]);
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
+  const [inkyTipsOnly, setInkyTipsOnly] = useState(false);
 
-  const fetchReleases = useCallback(async (page: number = 1, genres_filter: string[] = []) => {
+  const fetchReleases = useCallback(async (page: number = 1, genres_filter: string[] = [], inkyTips: boolean = false) => {
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
       params.set("page", page.toString());
       if (genres_filter.length > 0) {
         params.set("genres", genres_filter.join(","));
+      }
+      if (inkyTips) {
+        params.set("inky_tips_only", "true");
       }
 
       const response = await fetch(`/api/releases?${params}`);
@@ -52,11 +56,11 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    fetchReleases(1, selectedGenres);
-  }, [fetchReleases, selectedGenres]);
+    fetchReleases(1, selectedGenres, inkyTipsOnly);
+  }, [fetchReleases, selectedGenres, inkyTipsOnly]);
 
   const handlePageChange = (page: number) => {
-    fetchReleases(page, selectedGenres);
+    fetchReleases(page, selectedGenres, inkyTipsOnly);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -69,6 +73,17 @@ export default function Home() {
 
   const handleClearGenres = () => {
     setSelectedGenres([]);
+    setInkyTipsOnly(false);
+    setCurrentPage(1);
+  };
+
+  const handleInkyTipsToggle = () => {
+    setInkyTipsOnly((prev) => {
+      if (!prev) {
+        setSelectedGenres([]);
+      }
+      return !prev;
+    });
     setCurrentPage(1);
   };
 
@@ -83,12 +98,22 @@ export default function Home() {
             <button
               onClick={handleClearGenres}
               className={`px-3 py-2 sm:px-2 sm:py-1 text-xs rounded-full transition-colors whitespace-nowrap flex-shrink-0 ${
-                selectedGenres.length === 0
+                selectedGenres.length === 0 && !inkyTipsOnly
                   ? "bg-white text-black font-medium"
                   : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
               }`}
             >
               All Genres
+            </button>
+            <button
+              onClick={handleInkyTipsToggle}
+              className={`px-3 py-2 sm:px-2 sm:py-1 text-xs rounded-full transition-colors whitespace-nowrap flex-shrink-0 ${
+                inkyTipsOnly
+                  ? "bg-gradient-to-r from-purple-600 to-fuchsia-500 text-white font-bold"
+                  : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+              }`}
+            >
+              🐙 INKY TIPS
             </button>
             {genres.map((genre) => (
               <button

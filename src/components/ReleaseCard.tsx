@@ -52,6 +52,11 @@ export function ReleaseCard({ release }: ReleaseCardProps) {
               )}
             </div>
             <div className="flex items-center gap-3 flex-shrink-0">
+              {release.is_inky_tip ? (
+                <span className="px-2 py-0.5 text-xs font-bold bg-gradient-to-r from-purple-600 to-fuchsia-500 text-white rounded">
+                  🐙 INKY TIP
+                </span>
+              ) : null}
               <ShareButton
                 releaseId={release.id}
                 artist={release.artist}

@@ -26,6 +26,8 @@ export interface Release {
   youtube_id: string | null;
   bandcamp_url: string | null;
   bandcamp_album_id: string | null;
+  is_inky_tip: number | null;
+  inky_tip_note: string | null;
   source_name?: string;
 }
 
