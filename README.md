@@ -1,1 +1,31 @@
-A personal website that aggregates music reviews and premieres from curated sources, designed for a DJ and radio host who needs a single place to discover new music.
+# OctoCrate
+
+Eight arms in the crates. Music curated from the deep.
+
+A music aggregator that pulls album reviews from 6 curated sources into a unified feed. Built for DJs and music lovers.
+
+![OctoCrate screenshot](docs/screenshot.png)
+
+**Live:** [octocrate.vercel.app](https://octocrate.vercel.app)
+
+## Tech Stack
+
+Next.js 14 (App Router), TypeScript, Tailwind CSS, Turso (libSQL), Vercel
+
+## Sources
+
+- Nowa Muzyka
+- Bandcamp Daily
+- Resident Advisor
+- Boomkat
+- Inverted Audio
+- Shatter the Standards
+
+## Getting Started
+
+```bash
+npm install
+npm run dev
+```
+
+See [CLAUDE.md](CLAUDE.md) for full documentation.
