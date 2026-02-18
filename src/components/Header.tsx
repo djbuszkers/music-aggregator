@@ -23,8 +23,8 @@ export function Header({ lastUpdated }: HeaderProps) {
             className="h-16 sm:h-28"
           />
           <div>
-            <p className="text-xs sm:text-sm text-zinc-500 italic max-w-[200px] sm:max-w-[280px] leading-snug">
-              Eight arms in the crates. Music curated from the deep.
+            <p className="text-xs sm:text-sm text-zinc-500 italic leading-snug">
+              Eight arms in the crates.<br />Music curated from the deep.
             </p>
             {formattedDate && (
               <p className="text-[10px] sm:text-xs text-zinc-600 mt-1">
