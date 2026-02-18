@@ -18,6 +18,11 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#09090b" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <Script
           src="https://www.googletagmanager.com/gtag/js?id=G-RRKRNBHLME"
           strategy="afterInteractive"
