@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Tech Stack:** Next.js 14.2 (App Router), TypeScript, Tailwind CSS, Turso (libSQL) for database, deployed on Vercel with cron jobs.
 
-**Live URL:** https://muzyczka.vercel.app
+**Live URL:** https://octocrate.vercel.app
 
 ## Build Commands
 
