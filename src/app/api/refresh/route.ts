@@ -147,14 +147,14 @@ async function handleRefresh() {
       // Build set of release IDs needing data, all must have deezer_id
       const needsType = new Set(noType.filter((r) => r.deezer_id).map((r) => r.id));
       const needsLabel = new Set(noLabel.filter((r) => r.deezer_id).map((r) => r.id));
-      const allIds = new Set([...needsType, ...needsLabel]);
+      const allIds = new Set([...Array.from(needsType), ...Array.from(needsLabel)]);
       // Build a map of id -> release for lookup
       const releaseMap = new Map<number, Release>();
       for (const r of [...noType, ...noLabel]) {
         if (r.deezer_id && allIds.has(r.id)) releaseMap.set(r.id, r);
       }
       console.log(`Fetching Deezer details for ${releaseMap.size} releases (type: ${needsType.size}, label: ${needsLabel.size})...`);
-      for (const [id, release] of releaseMap) {
+      for (const [id, release] of Array.from(releaseMap.entries())) {
         try {
           const details = await getDeezerAlbumDetails(release.deezer_id!);
           if (details) {
