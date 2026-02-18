@@ -35,3 +35,8 @@ next-env.d.ts
 
 # SQLite database
 /data/
+
+# Working notes & backups
+backup.sql
+deezer.md
+inky-tip-implementation.md
