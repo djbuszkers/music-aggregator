@@ -20,7 +20,7 @@ export function ReleaseCard({ release }: ReleaseCardProps) {
   return (
     <a
       href={`/release/${release.id}`}
-      className="group flex flex-col sm:flex-row gap-3 sm:gap-4 py-4 px-4 hover:bg-zinc-900 transition-colors border-b border-zinc-800"
+      className="group flex flex-col sm:flex-row gap-3 sm:gap-4 p-4 bg-zinc-900 rounded-xl hover:bg-zinc-800/80 transition-colors"
     >
       {/* Cover Image */}
       <div className="flex-shrink-0">
@@ -28,10 +28,10 @@ export function ReleaseCard({ release }: ReleaseCardProps) {
           <img
             src={release.cover_image}
             alt={`${release.artist} - ${release.title}`}
-            className="w-full sm:w-[200px] aspect-square sm:h-[200px] object-cover bg-zinc-800"
+            className="w-full sm:w-[240px] aspect-square sm:h-[240px] object-cover bg-zinc-800 rounded-lg"
           />
         ) : (
-          <div className="w-full sm:w-[200px] aspect-square sm:h-[200px] bg-zinc-800 flex items-center justify-center">
+          <div className="w-full sm:w-[240px] aspect-square sm:h-[240px] bg-zinc-800 rounded-lg flex items-center justify-center">
             <span className="text-zinc-600 text-4xl">♪</span>
           </div>
         )}
@@ -45,8 +45,8 @@ export function ReleaseCard({ release }: ReleaseCardProps) {
               <span className="font-semibold text-white group-hover:text-zinc-200">
                 {release.artist}
               </span>
-              <span className="text-zinc-500 mx-2">—</span>
-              <span className="text-zinc-400">{release.title}</span>
+              <span className="text-zinc-600 mx-2">—</span>
+              <span className="text-zinc-300">{release.title}</span>
               {release.label && (
                 <span className="text-zinc-600 text-sm ml-2">({release.label})</span>
               )}
@@ -67,7 +67,7 @@ export function ReleaseCard({ release }: ReleaseCardProps) {
                   🐙 INKY TIP
                 </span>
               ) : null}
-              <span className="px-2 py-0.5 text-xs font-medium bg-zinc-800 text-zinc-400 rounded">
+              <span className="px-1.5 py-0.5 text-[10px] text-zinc-500 bg-zinc-800/50 rounded">
                 {release.source_name}
               </span>
               <ShareButton
@@ -141,12 +141,18 @@ export function ReleaseCard({ release }: ReleaseCardProps) {
               )}
             </div>
           )}
-          <div className="text-sm mt-2">
+          <div className="mt-2">
             {release.genre && (
-              <span className="text-zinc-500">{release.genre}</span>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {release.genre.split(",").map((g) => g.trim()).filter(Boolean).map((g) => (
+                  <span key={g} className="border border-zinc-700 text-zinc-400 rounded-full px-2 py-0.5 text-xs">
+                    {g}
+                  </span>
+                ))}
+              </div>
             )}
             {release.review_snippet && (
-              <p className="text-zinc-600 mt-2 line-clamp-5">{release.review_snippet}</p>
+              <p className="text-zinc-600 text-sm line-clamp-3">{release.review_snippet}</p>
             )}
           </div>
         </div>

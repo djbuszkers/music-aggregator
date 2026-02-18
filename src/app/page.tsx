@@ -101,9 +101,9 @@ export default function Home() {
     <div className="min-h-screen">
       <Header lastUpdated={lastUpdated} />
 
-      <main className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
+      <main className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
         {/* Filters */}
-        <div className="sticky top-[60px] sm:top-[100px] z-40 bg-zinc-950/95 backdrop-blur-sm -mx-4 px-4 py-3 mb-4 space-y-2">
+        <div className="sticky top-[56px] sm:top-[76px] z-40 bg-zinc-950/95 backdrop-blur-sm -mx-4 px-4 py-2.5 mb-4 border-b border-zinc-800/50 space-y-1.5">
           {/* Row 1: All / INKY TIPS / Release Type */}
           <div className="flex flex-wrap justify-center gap-1.5">
             <button

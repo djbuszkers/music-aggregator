@@ -15,17 +15,24 @@ export function Header({ lastUpdated }: HeaderProps) {
 
   return (
     <header className="border-b border-zinc-800 bg-zinc-950/95 backdrop-blur-sm sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 py-3 sm:py-6">
-        <img
-          src="/octocrate-logo.svg"
-          alt="OctoCrate"
-          className="h-32 sm:h-48"
-        />
-        {formattedDate && (
-          <p className="text-xs sm:text-sm text-zinc-500 mt-1">
-            Last updated: {formattedDate}
-          </p>
-        )}
+      <div className="max-w-7xl mx-auto px-4 py-3 sm:py-4 flex items-center justify-between">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <img
+            src="/octocrate-logo.svg"
+            alt="OctoCrate"
+            className="h-16 sm:h-28"
+          />
+          <div>
+            <p className="text-xs sm:text-sm text-zinc-500 italic max-w-[200px] sm:max-w-[280px] leading-snug">
+              Eight arms in the crates. Music curated from the deep.
+            </p>
+            {formattedDate && (
+              <p className="text-[10px] sm:text-xs text-zinc-600 mt-1">
+                Updated {formattedDate}
+              </p>
+            )}
+          </div>
+        </div>
       </div>
     </header>
   );

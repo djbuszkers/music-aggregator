@@ -17,7 +17,7 @@ export function ReleaseGrid({ releases }: ReleaseGridProps) {
   }
 
   return (
-    <div className="border-t border-zinc-800">
+    <div className="space-y-3">
       {releases.map((release) => (
         <ReleaseCard key={release.id} release={release} />
       ))}
