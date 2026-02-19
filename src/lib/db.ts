@@ -283,7 +283,7 @@ export async function insertRelease(release: ReleaseInput): Promise<boolean> {
 
   // Check for cross-source duplicate (same artist + title, case-insensitive)
   const existing = await database.execute({
-    sql: `SELECT id, review_snippet, label FROM releases WHERE LOWER(TRIM(artist)) = LOWER(TRIM(?)) AND LOWER(TRIM(title)) = LOWER(TRIM(?))`,
+    sql: `SELECT id, review_snippet, label, genre FROM releases WHERE LOWER(TRIM(artist)) = LOWER(TRIM(?)) AND LOWER(TRIM(title)) = LOWER(TRIM(?))`,
     args: [release.artist, release.title],
   });
 
@@ -295,7 +295,7 @@ export async function insertRelease(release: ReleaseInput): Promise<boolean> {
       // New review is longer — update the existing row
       await database.execute({
         sql: `
-          UPDATE releases SET source_id = ?, artist = ?, title = ?, label = ?, genre = ?, cover_image = ?, review_url = ?, review_snippet = ?, published_at = ?, raw_data = ?,
+          UPDATE releases SET source_id = ?, artist = ?, title = ?, label = COALESCE(?, label), genre = COALESCE(?, genre), cover_image = ?, review_url = ?, review_snippet = ?, published_at = ?, raw_data = ?,
           bandcamp_url = COALESCE(?, bandcamp_url), bandcamp_album_id = COALESCE(?, bandcamp_album_id),
           release_type = COALESCE(?, release_type)
           WHERE id = ?
@@ -326,6 +326,10 @@ export async function insertRelease(release: ReleaseInput): Promise<boolean> {
     if (release.label && !existing.rows[0].label) {
       backfills.push("label = ?");
       backfillArgs.push(release.label);
+    }
+    if (release.genre && !existing.rows[0].genre) {
+      backfills.push("genre = ?");
+      backfillArgs.push(release.genre);
     }
     if (release.bandcamp_url) {
       backfills.push("bandcamp_url = COALESCE(bandcamp_url, ?)");

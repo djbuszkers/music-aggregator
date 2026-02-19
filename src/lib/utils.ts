@@ -140,7 +140,9 @@ const GENRE_MAP: Record<string, string> = {
 const CANONICAL_GENRES = new Set([
   "AMBIENT", "TECHNO", "HOUSE", "ELECTRONIC", "HIP-HOP", "BASS",
   "JAZZ", "CLASSICAL", "INDIE", "EXPERIMENTAL", "DUB", "ELECTRO",
-  "WORLD", "DISCO", "SOUL", "FUNK", "POP", "FOLK", "METAL", "PUNK"
+  "WORLD", "DISCO", "SOUL", "FUNK", "POP", "FOLK", "METAL", "PUNK",
+  "ROCK", "TRANCE", "BREAKS", "RAVE", "ACID", "PROGRESSIVE", "MINIMAL",
+  "BOOGIE", "GOSPEL", "RAP", "R&B", "NEO-SOUL"
 ]);
 
 /**

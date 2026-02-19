@@ -18,7 +18,18 @@ const GENRE_KEYWORDS: Record<string, string> = {
   "afrobeat": "world",
   "afrobeats": "world",
   "reggae": "dub",
+  "pop": "pop",
+  "synth-pop": "pop",
+  "indie": "indie",
+  "alternative": "indie",
+  "rock": "indie",
+  "electronic": "electronic",
+  "blues": "soul",
+  "experimental": "experimental",
 };
+
+// Default genre for articles where no genre keywords are detected
+const DEFAULT_GENRE = "SOUL, R&B";
 
 interface ArchivePost {
   title: string;
@@ -226,7 +237,7 @@ export async function scrapeShatterTheStandards(): Promise<number> {
       details = { coverImage: null, reviewSnippet: null, genres: [], starRating: null };
     }
 
-    const genre = normalizeGenre(details.genres.join(", "));
+    const genre = normalizeGenre(details.genres.join(", ")) || DEFAULT_GENRE;
 
     const rawData = details.starRating
       ? JSON.stringify({ starRating: details.starRating })
