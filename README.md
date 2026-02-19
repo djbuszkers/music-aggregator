@@ -2,7 +2,7 @@
 
 Eight arms in the crates. Music curated from the deep.
 
-A music aggregator that pulls album reviews from 6 curated sources into a unified feed. Built for DJs and music lovers.
+A music aggregator that pulls album reviews from 7 curated sources into a unified feed. Built for DJs and music lovers.
 
 ![OctoCrate screenshot](docs/screenshot.png)
 
@@ -20,6 +20,7 @@ Next.js 14 (App Router), TypeScript, Tailwind CSS, Turso (libSQL), Vercel
 - Boomkat
 - Inverted Audio
 - Shatter the Standards
+- DJ Mag
 
 ## Getting Started
 

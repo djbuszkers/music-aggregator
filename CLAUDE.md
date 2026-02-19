@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**OctoCrate** — music aggregator website for a DJ/radio host. Aggregates album reviews from 6 curated sources into a unified feed.
+**OctoCrate** — music aggregator website for a DJ/radio host. Aggregates album reviews from 7 curated sources into a unified feed.
 
 **Tech Stack:** Next.js 14.2 (App Router), TypeScript, Tailwind CSS, Turso (libSQL) for database, deployed on Vercel with cron jobs.
 
@@ -50,6 +50,7 @@ YOUTUBE_API_KEY=<youtube-data-api-v3-key>
 4. **Boomkat** - JavaScript-rendered, requires Puppeteer
 5. **Inverted Audio** - RSS feed with HTML scraping for details
 6. **Shatter the Standards** - Substack archive API + Cheerio scraping; covers soul, R&B, hip-hop, neo-soul
+7. **DJ Mag** - HTML scraping with Cheerio (no RSS feed); albums pass through unfiltered, EPs filtered by genre allowlist
 
 ### Key Files
 
@@ -90,7 +91,8 @@ src/
         ├── ra.ts
         ├── boomkat.ts
         ├── inverted-audio.ts
-        └── shatter-the-standards.ts  # Substack archive API + Cheerio
+        ├── shatter-the-standards.ts  # Substack archive API + Cheerio
+        └── djmag.ts              # HTML scraping (albums + genre-filtered EPs)
 public/
 └── octocrate-logo.svg        # OctoCrate logo (tentacle + vinyl, transparent bg)
 ```

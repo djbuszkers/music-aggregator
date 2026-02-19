@@ -6,6 +6,7 @@ import { scrapeRA } from "@/lib/scrapers/ra";
 import { scrapeBoomkat } from "@/lib/scrapers/boomkat";
 import { scrapeInvertedAudio } from "@/lib/scrapers/inverted-audio";
 import { scrapeShatterTheStandards } from "@/lib/scrapers/shatter-the-standards";
+import { scrapeDjMag } from "@/lib/scrapers/djmag";
 import { getReleasesWithoutSpotify, updateReleaseSpotify, getReleasesWithoutYouTube, updateReleaseYouTube, getReleasesWithoutDeezer, updateReleaseDeezer, getReleasesWithoutReleaseType, updateReleaseType, getReleasesWithoutLabel, updateReleaseLabel } from "@/lib/db";
 import { searchSpotifyAlbum } from "@/lib/spotify";
 import { searchVideo } from "@/lib/youtube";
@@ -25,6 +26,7 @@ async function handleRefresh() {
       boomkat: 0,
       invertedAudio: 0,
       shatterTheStandards: 0,
+      djMag: 0,
       total: 0,
     };
 
@@ -70,7 +72,14 @@ async function handleRefresh() {
       console.error("Error scraping Shatter the Standards:", error);
     }
 
-    results.total = results.nowaMuzyka + results.bandcamp + results.residentAdvisor + results.boomkat + results.invertedAudio + results.shatterTheStandards;
+    // Scrape DJ Mag
+    try {
+      results.djMag = await scrapeDjMag();
+    } catch (error) {
+      console.error("Error scraping DJ Mag:", error);
+    }
+
+    results.total = results.nowaMuzyka + results.bandcamp + results.residentAdvisor + results.boomkat + results.invertedAudio + results.shatterTheStandards + results.djMag;
 
     // Match Spotify links for releases missing them
     let spotifyMatched = 0;
