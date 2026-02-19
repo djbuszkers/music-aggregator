@@ -1,5 +1,6 @@
 import { createClient, Client } from "@libsql/client";
 import type { Source, Release, ReleaseInput } from "./types";
+import { getGenreCategory, getMainGenreCategories, expandGenreCategory } from "./utils";
 
 let db: Client | null = null;
 let initialized = false;
@@ -184,9 +185,15 @@ export async function getReleases(sourceId?: number, limit = 15, offset = 0, gen
   }
 
   if (genres && genres.length > 0) {
-    const conditions = genres.map(() => "r.genre LIKE ?");
-    query += ` AND (${conditions.join(" OR ")})`;
+    // Expand each genre category to all its sub-genres for matching
+    const allSubGenres: string[] = [];
     for (const g of genres) {
+      const expanded = expandGenreCategory(g);
+      allSubGenres.push(...expanded);
+    }
+    const conditions = allSubGenres.map(() => "r.genre LIKE ?");
+    query += ` AND (${conditions.join(" OR ")})`;
+    for (const g of allSubGenres) {
       args.push(`%${g}%`);
     }
   }
@@ -223,9 +230,14 @@ export async function getTotalReleases(sourceId?: number, genres?: string[], ink
   }
 
   if (genres && genres.length > 0) {
-    const conditions = genres.map(() => "r.genre LIKE ?");
-    query += ` AND (${conditions.join(" OR ")})`;
+    const allSubGenres: string[] = [];
     for (const g of genres) {
+      const expanded = expandGenreCategory(g);
+      allSubGenres.push(...expanded);
+    }
+    const conditions = allSubGenres.map(() => "r.genre LIKE ?");
+    query += ` AND (${conditions.join(" OR ")})`;
+    for (const g of allSubGenres) {
       args.push(`%${g}%`);
     }
   }
@@ -252,15 +264,17 @@ export async function getDistinctGenres(): Promise<string[]> {
     ORDER BY genre
   `);
 
-  const genreSet = new Set<string>();
+  const categorySet = new Set<string>();
   for (const row of result.rows) {
     const genres = String(row.genre).split(", ");
     for (const g of genres) {
-      genreSet.add(g.trim());
+      categorySet.add(getGenreCategory(g.trim()));
     }
   }
 
-  return Array.from(genreSet).sort();
+  // Return in the canonical order, filtered to categories that have releases
+  const ordered = getMainGenreCategories();
+  return ordered.filter(cat => categorySet.has(cat));
 }
 
 export async function insertRelease(release: ReleaseInput): Promise<boolean> {

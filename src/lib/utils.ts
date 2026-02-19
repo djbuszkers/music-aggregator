@@ -174,6 +174,76 @@ export function normalizeGenre(genre: string | null | undefined): string | null 
   return normalized.length > 0 ? normalized.join(", ") : null;
 }
 
+/**
+ * Genre category mapping: maps every granular genre tag to one of 15 main filter categories.
+ * The filter bar shows only main categories; DB and display stay granular.
+ */
+const GENRE_CATEGORY_MAP: Record<string, string> = {
+  // BASS
+  "BASS": "BASS", "UK BASS": "BASS", "BREAKS": "BASS", "RAVE": "BASS",
+  "GHETTOTECH": "BASS", "FOOTWORK": "BASS", "UK FUNKY": "BASS",
+  // HOUSE
+  "HOUSE": "HOUSE", "DEEP HOUSE": "HOUSE", "SOULFUL HOUSE": "HOUSE",
+  "TECH HOUSE": "HOUSE", "TRIBAL HOUSE": "HOUSE", "DETROIT HOUSE": "HOUSE",
+  "DISCO": "HOUSE", "BOOGIE": "HOUSE",
+  // TECHNO
+  "TECHNO": "TECHNO", "ACID": "TECHNO", "DETROIT TECHNO": "TECHNO",
+  "DUB TECHNO": "TECHNO", "MINIMAL": "TECHNO", "PROGRESSIVE": "TECHNO",
+  "TRANCE": "TECHNO",
+  // DUB
+  "DUB": "DUB",
+  // ELECTRONIC
+  "ELECTRONIC": "ELECTRONIC", "ELECTRO": "ELECTRONIC", "KOSMICHE": "ELECTRONIC",
+  "LO-FI": "ELECTRONIC", "BROKEN BEAT": "ELECTRONIC",
+  // AMBIENT
+  "AMBIENT": "AMBIENT",
+  // EXPERIMENTAL
+  "EXPERIMENTAL": "EXPERIMENTAL",
+  // HIP-HOP
+  "HIP-HOP": "HIP-HOP", "RAP": "HIP-HOP", "UK DRILL": "HIP-HOP",
+  // SOUL
+  "SOUL": "SOUL", "NEO-SOUL": "SOUL", "R&B": "SOUL", "FUNK": "SOUL", "GOSPEL": "SOUL",
+  // INDIE
+  "INDIE": "INDIE", "FOLK": "INDIE", "INDIE DANCE": "INDIE",
+  // JAZZ
+  "JAZZ": "JAZZ",
+  // ROCK
+  "POST ROCK": "ROCK", "INDUSTRIAL": "ROCK", "METAL": "ROCK",
+  // POP
+  "POP": "POP", "SYNTH-POP": "POP", "FRENCH TOUCH": "POP",
+  // WORLD
+  "WORLD": "WORLD", "LATIN": "WORLD", "AFROBEAT": "WORLD", "AFROBEATS": "WORLD",
+  // CLASSICAL
+  "CLASSICAL": "CLASSICAL",
+};
+
+const MAIN_GENRE_CATEGORIES = [
+  "BASS", "HOUSE", "TECHNO", "DUB", "ELECTRONIC", "AMBIENT", "EXPERIMENTAL",
+  "HIP-HOP", "SOUL", "INDIE", "JAZZ", "ROCK", "POP", "WORLD", "CLASSICAL",
+];
+
+/** Returns the ordered list of 15 main genre filter categories. */
+export function getMainGenreCategories(): string[] {
+  return MAIN_GENRE_CATEGORIES;
+}
+
+/** Maps a granular genre tag to its main category. Returns the tag itself if no mapping exists. */
+export function getGenreCategory(genre: string): string {
+  return GENRE_CATEGORY_MAP[genre.toUpperCase()] ?? genre.toUpperCase();
+}
+
+/** Given a main category, returns all granular genres that belong to it (for SQL filtering). */
+export function expandGenreCategory(category: string): string[] {
+  const upper = category.toUpperCase();
+  const genres: string[] = [];
+  for (const [granular, cat] of Object.entries(GENRE_CATEGORY_MAP)) {
+    if (cat === upper) {
+      genres.push(granular);
+    }
+  }
+  return genres.length > 0 ? genres : [upper];
+}
+
 export function inferReleaseTypeFromTrackCount(numTracks: number): string | null {
   if (numTracks <= 0) return null;
   if (numTracks <= 2) return "Single";
