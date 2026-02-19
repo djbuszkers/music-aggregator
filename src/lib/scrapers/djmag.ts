@@ -148,30 +148,26 @@ async function fetchReviewDetail(path: string): Promise<ReviewDetail | null> {
     return null;
   }
 
-  // Label — 3rd ?s1= link (after reviewer + artist), skipping genres
+  // Identify reviewer, artist, label, and genres by position in s1Links.
+  // Pattern: reviewer (1st) → artist (2nd) → label (3rd) → genres (rest)
+  const artistIdx = s1Links.findIndex((l) => l.toLowerCase() === artist.toLowerCase());
+  // Label is the first non-artist link after the artist position
   let label = '';
-  for (const text of s1Links) {
-    if (text.toLowerCase() === artist.toLowerCase()) continue;
-    if (ALLOWED_GENRES.has(text.toLowerCase())) continue;
-    // First remaining non-reviewer link after we've seen the artist is the label.
-    // The reviewer is always first in s1Links, so skip the first non-artist non-genre entry
-    // only if it appears before the artist in page order (i.e. it's the reviewer).
-    const idx = s1Links.indexOf(text);
-    const artistIdx = s1Links.findIndex((l) => l.toLowerCase() === artist.toLowerCase());
-    // Skip if this link appears before the artist (it's the reviewer)
-    if (idx < artistIdx) continue;
-    label = text;
-    break;
+  let labelIdx = -1;
+  for (let i = artistIdx + 1; i < s1Links.length; i++) {
+    if (s1Links[i].toLowerCase() !== artist.toLowerCase()) {
+      label = s1Links[i];
+      labelIdx = i;
+      break;
+    }
   }
 
-  // Genres — all ?s1= links matching allowlist
+  // Genres — all s1 links after the label (or after artist if no label)
+  const genreStartIdx = labelIdx >= 0 ? labelIdx + 1 : artistIdx + 1;
   const genres: string[] = [];
-  for (const text of s1Links) {
-    const raw = text.toLowerCase();
-    if (ALLOWED_GENRES.has(raw)) {
-      const normalized = normalizeGenre(raw);
-      if (!genres.includes(normalized)) genres.push(normalized);
-    }
+  for (let i = genreStartIdx; i < s1Links.length; i++) {
+    const normalized = normalizeGenre(s1Links[i]);
+    if (!genres.includes(normalized)) genres.push(normalized);
   }
 
   // Review snippet — collect all substantial paragraphs as the review body
@@ -266,8 +262,11 @@ export async function scrapeDjMag(): Promise<number> {
       detail.title.toLowerCase().includes(' ep');
     const releaseType = isEpCategory ? 'EP' : 'LP';
 
-    // For EPs: skip if no matching genres (avoids pure club/techno EPs)
-    if (releaseType === 'EP' && detail.genres.length === 0) {
+    // For EPs: skip if no genres match the allowlist (avoids pure club/techno EPs)
+    const hasAllowedGenre = detail.genres.some((g) =>
+      ALLOWED_GENRES.has(g.toLowerCase().replace(/-/g, ' '))
+    );
+    if (releaseType === 'EP' && !hasAllowedGenre) {
       console.log(`[djmag] Skip EP (no genre match): ${detail.artist} — ${detail.title}`);
       skipped++;
       continue;
