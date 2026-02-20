@@ -100,7 +100,7 @@ export function ShareButton({ releaseId, artist, title }: ShareButtonProps) {
       <button
         onClick={handleStoryShare}
         disabled={loadingStory}
-        className="hidden max-sm:inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-zinc-800 text-zinc-400 rounded hover:bg-zinc-700 hover:text-zinc-200 transition-colors cursor-pointer disabled:cursor-wait disabled:opacity-50"
+        className="hidden items-center gap-1 px-2 py-0.5 text-xs font-medium bg-zinc-800 text-zinc-400 rounded hover:bg-zinc-700 hover:text-zinc-200 transition-colors cursor-pointer disabled:cursor-wait disabled:opacity-50"
         title="Share to Instagram Story"
       >
         {loadingStory ? (
