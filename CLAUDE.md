@@ -80,7 +80,7 @@ src/
 └── lib/
     ├── db.ts                 # Turso database connection (async)
     ├── types.ts              # TypeScript interfaces
-    ├── utils.ts              # Genre normalization
+    ├── utils.ts              # Genre normalization + category mapping (15 main categories)
     ├── bandcamp.ts           # Bandcamp album ID extraction + embed URL
     ├── spotify.ts            # Spotify API client (album search, sanitizes quotes)
     ├── youtube.ts            # YouTube Data API client (music video search)
@@ -94,7 +94,11 @@ src/
         ├── shatter-the-standards.ts  # Substack archive API + Cheerio
         └── djmag.ts              # HTML scraping (albums + genre-filtered EPs)
 public/
-└── octocrate-logo.svg        # OctoCrate logo (tentacle + vinyl, transparent bg)
+├── octocrate-logo.svg        # OctoCrate logo (tentacle + vinyl, transparent bg)
+├── manifest.json             # PWA manifest (background_color: #09090b)
+├── icon-512x512.png          # PWA icon (white logo on black bg)
+├── icon-192x192.png          # PWA icon (white logo on black bg)
+└── apple-touch-icon.png      # iOS home screen icon (white logo on black bg)
 ```
 
 ### Database (Turso/libSQL)
@@ -108,7 +112,7 @@ All database functions are **async** and auto-initialize tables on first call.
 **Key functions in db.ts:**
 - `getSources()` / `getSourceByName(name)`
 - `getReleases(sourceId?, limit, offset, genres?, inkyTipsOnly?, releaseType?)` / `getReleaseById(id)`
-- `insertRelease(release)` - Deduplicates cross-source releases by artist+title (case-insensitive); keeps the release with the longer review_snippet. Backfills missing labels and bandcamp data on existing releases during dedup. Also returns false on same-URL duplicates (UNIQUE constraint on review_url)
+- `insertRelease(release)` - Deduplicates cross-source releases by artist+title (case-insensitive); keeps the release with the longer review_snippet. Backfills missing fields (label, genre, bandcamp data) on existing releases during dedup using COALESCE (never overwrites non-NULL with NULL). Also returns false on same-URL duplicates (UNIQUE constraint on review_url)
 
 ## Deployment
 
@@ -144,6 +148,10 @@ All database functions are **async** and auto-initialize tables on first call.
 
 ### Genre Filtering
 
+- **Genre category system:** 40+ granular genre tags are mapped to 15 main filter categories (BASS, HOUSE, TECHNO, DUB, ELECTRONIC, AMBIENT, EXPERIMENTAL, HIP-HOP, SOUL, INDIE, JAZZ, ROCK, POP, WORLD, CLASSICAL) via `GENRE_CATEGORY_MAP` in `utils.ts`
+- Filter bar shows only the 15 main categories; release cards still display granular genres (e.g. FOOTWORK, DEEP HOUSE)
+- Clicking a category filter expands to match all sub-genres via `expandGenreCategory()` (e.g. BASS matches FOOTWORK, UK FUNKY, BREAKS, RAVE, etc.)
+- `getDistinctGenres()` in `db.ts` returns only categories that have matching releases, ordered by `MAIN_GENRE_CATEGORIES`
 - Filters split into two centered rows: top row has All/INKY TIPS/release type (Single, EP, LP); bottom row has genre buttons
 - Genre filtering supports multi-select with OR logic (selecting multiple genres shows releases matching any of them)
 - Genre buttons wrap on mobile; all filters are center-aligned
