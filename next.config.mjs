@@ -9,7 +9,11 @@ const nextConfig = {
     ],
   },
   experimental: {
-    serverComponentsExternalPackages: ["puppeteer"],
+    serverComponentsExternalPackages: [
+      "puppeteer",
+      "puppeteer-extra",
+      "puppeteer-extra-plugin-stealth",
+    ],
   },
 };
 

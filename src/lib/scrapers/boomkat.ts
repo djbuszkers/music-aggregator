@@ -1,7 +1,10 @@
-import puppeteer from "puppeteer";
+import puppeteer from "puppeteer-extra";
+import StealthPlugin from "puppeteer-extra-plugin-stealth";
 import { getSourceByName, insertRelease, updateSourceLastFetched } from "../db";
 import { normalizeGenre } from "../utils";
 import type { ReleaseInput } from "../types";
+
+puppeteer.use(StealthPlugin());
 
 const BASE_URL = "https://boomkat.com";
 
@@ -61,7 +64,12 @@ export async function scrapeBoomkat(): Promise<number> {
     // Check if blocked or page not found
     const pageStatus = await page.evaluate(() => {
       const text = document.body.innerText;
-      if (text.includes("Access Denied") || text.includes("403")) {
+      if (
+        text.includes("Access Denied") ||
+        text.includes("403") ||
+        document.title.includes("Just a moment") ||
+        text.includes("Enable JavaScript and cookies to continue")
+      ) {
         return "blocked";
       }
       if (text.includes("Page Not Found")) {
