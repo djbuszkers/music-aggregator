@@ -2,15 +2,15 @@
   "crons": [
     {
       "path": "/api/refresh",
-      "schedule": "0 8 */2 * *"
+      "schedule": "0 8 * * *"
     },
     {
       "path": "/api/refresh-puppeteer",
-      "schedule": "30 8 */2 * *"
+      "schedule": "30 8 * * *"
     },
     {
       "path": "/api/match",
-      "schedule": "0 10 */2 * *"
+      "schedule": "0 10 * * *"
     }
   ]
 }
