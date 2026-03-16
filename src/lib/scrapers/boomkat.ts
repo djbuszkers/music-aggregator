@@ -68,7 +68,11 @@ export async function scrapeBoomkat(): Promise<number> {
         text.includes("Access Denied") ||
         text.includes("403") ||
         document.title.includes("Just a moment") ||
-        text.includes("Enable JavaScript and cookies to continue")
+        document.title.includes("Attention Required") ||
+        text.includes("Enable JavaScript and cookies to continue") ||
+        text.includes("Checking your browser") ||
+        text.includes("cf-browser-verification") ||
+        document.querySelector("#challenge-form") !== null
       ) {
         return "blocked";
       }

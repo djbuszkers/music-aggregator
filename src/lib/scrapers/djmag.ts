@@ -1,5 +1,5 @@
 import * as cheerio from 'cheerio';
-import { getSourceByName, insertRelease } from '../db';
+import { getSourceByName, insertRelease, updateSourceLastFetched } from '../db';
 
 const BASE_URL = 'https://djmag.com';
 
@@ -301,6 +301,7 @@ export async function scrapeDjMag(): Promise<number> {
     }
   }
 
+  await updateSourceLastFetched(source.id);
   console.log(`[djmag] Done. Added: ${added}, Skipped/duplicate: ${skipped}`);
   return added;
 }
