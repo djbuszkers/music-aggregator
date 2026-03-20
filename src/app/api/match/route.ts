@@ -1,0 +1,159 @@
+import { NextResponse } from "next/server";
+import type { Release } from "@/lib/types";
+import { getReleasesWithoutSpotify, updateReleaseSpotify, getReleasesWithoutYouTube, updateReleaseYouTube, getReleasesWithoutDeezer, updateReleaseDeezer, getReleasesWithoutReleaseType, updateReleaseType, getReleasesWithoutLabel, updateReleaseLabel } from "@/lib/db";
+import { searchSpotifyAlbum } from "@/lib/spotify";
+import { searchVideo } from "@/lib/youtube";
+import { searchDeezerAlbum, getDeezerAlbumDetails } from "@/lib/deezer";
+import { inferReleaseTypeFromTitle } from "@/lib/utils";
+
+export const maxDuration = 300;
+
+async function handleMatch() {
+  try {
+    console.log("Starting streaming matching...");
+
+    // Match Spotify links for releases missing them
+    let spotifyMatched = 0;
+    try {
+      const noSpotify = await getReleasesWithoutSpotify();
+      console.log(`Matching Spotify for ${noSpotify.length} releases...`);
+      for (const release of noSpotify) {
+        try {
+          const match = await searchSpotifyAlbum(release.artist, release.title);
+          if (match?.spotifyUrl) {
+            await updateReleaseSpotify(release.id, match.spotifyUrl, match.spotifyId, match.releaseType);
+            spotifyMatched++;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 300));
+        } catch (error) {
+          console.error(`Spotify match error for ${release.artist} - ${release.title}:`, error);
+        }
+      }
+      console.log(`Spotify: matched ${spotifyMatched}/${noSpotify.length}`);
+    } catch (error) {
+      console.error("Error during Spotify matching:", error);
+    }
+
+    // Match YouTube links for releases missing them
+    let youtubeMatched = 0;
+    try {
+      const noYouTube = await getReleasesWithoutYouTube();
+      console.log(`Matching YouTube for ${noYouTube.length} releases...`);
+      for (const release of noYouTube) {
+        try {
+          const match = await searchVideo(release.artist, release.title);
+          if (match?.youtubeUrl) {
+            await updateReleaseYouTube(release.id, match.youtubeUrl, match.youtubeId);
+            youtubeMatched++;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 300));
+        } catch (error) {
+          console.error(`YouTube match error for ${release.artist} - ${release.title}:`, error);
+        }
+      }
+      console.log(`YouTube: matched ${youtubeMatched}/${noYouTube.length}`);
+    } catch (error) {
+      console.error("Error during YouTube matching:", error);
+    }
+
+    // Match Deezer links for releases missing them
+    let deezerMatched = 0;
+    try {
+      const noDeezer = await getReleasesWithoutDeezer();
+      console.log(`Matching Deezer for ${noDeezer.length} releases...`);
+      for (const release of noDeezer) {
+        try {
+          const match = await searchDeezerAlbum(release.artist, release.title);
+          if (match?.deezerUrl) {
+            await updateReleaseDeezer(release.id, match.deezerUrl, match.deezerId);
+            deezerMatched++;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 300));
+        } catch (error) {
+          console.error(`Deezer match error for ${release.artist} - ${release.title}:`, error);
+        }
+      }
+      console.log(`Deezer: matched ${deezerMatched}/${noDeezer.length}`);
+    } catch (error) {
+      console.error("Error during Deezer matching:", error);
+    }
+
+    // Backfill labels and release types from Deezer album details
+    let deezerTypeMatched = 0;
+    let deezerLabelMatched = 0;
+    try {
+      const noType = await getReleasesWithoutReleaseType();
+      const noLabel = await getReleasesWithoutLabel();
+      const needsType = new Set(noType.filter((r) => r.deezer_id).map((r) => r.id));
+      const needsLabel = new Set(noLabel.filter((r) => r.deezer_id).map((r) => r.id));
+      const allIds = new Set([...Array.from(needsType), ...Array.from(needsLabel)]);
+      const releaseMap = new Map<number, Release>();
+      for (const r of [...noType, ...noLabel]) {
+        if (r.deezer_id && allIds.has(r.id)) releaseMap.set(r.id, r);
+      }
+      console.log(`Fetching Deezer details for ${releaseMap.size} releases (type: ${needsType.size}, label: ${needsLabel.size})...`);
+      for (const [id, release] of Array.from(releaseMap.entries())) {
+        try {
+          const details = await getDeezerAlbumDetails(release.deezer_id!);
+          if (details) {
+            if (details.releaseType && needsType.has(id)) {
+              await updateReleaseType(id, details.releaseType);
+              deezerTypeMatched++;
+            }
+            if (details.label && needsLabel.has(id)) {
+              await updateReleaseLabel(id, details.label);
+              deezerLabelMatched++;
+            }
+          }
+          await new Promise((resolve) => setTimeout(resolve, 300));
+        } catch (error) {
+          console.error(`Deezer details error for ${release.artist} - ${release.title}:`, error);
+        }
+      }
+      if (deezerTypeMatched > 0) console.log(`Release type from Deezer: ${deezerTypeMatched}`);
+      if (deezerLabelMatched > 0) console.log(`Labels from Deezer: ${deezerLabelMatched}`);
+    } catch (error) {
+      console.error("Error during Deezer details backfill:", error);
+    }
+
+    // Infer release type from title for releases still missing it
+    let titleTypeMatched = 0;
+    try {
+      const noType = await getReleasesWithoutReleaseType();
+      for (const release of noType) {
+        const inferred = inferReleaseTypeFromTitle(release.title);
+        if (inferred) {
+          await updateReleaseType(release.id, inferred);
+          titleTypeMatched++;
+        }
+      }
+      if (titleTypeMatched > 0) {
+        console.log(`Release type from title: matched ${titleTypeMatched}/${noType.length}`);
+      }
+    } catch (error) {
+      console.error("Error during title release type inference:", error);
+    }
+
+    return NextResponse.json({
+      success: true,
+      streaming: { spotifyMatched, youtubeMatched, deezerMatched },
+      releaseTypeMatched: { deezer: deezerTypeMatched, title: titleTypeMatched },
+      labelsFromDeezer: deezerLabelMatched,
+      message: `Matched ${spotifyMatched} Spotify + ${youtubeMatched} YouTube + ${deezerMatched} Deezer, release types: ${deezerTypeMatched} from Deezer + ${titleTypeMatched} from title, labels: ${deezerLabelMatched} from Deezer`,
+    });
+  } catch (error) {
+    console.error("Error during matching:", error);
+    return NextResponse.json(
+      { error: "Failed to run matching" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET() {
+  return handleMatch();
+}
+
+export async function POST() {
+  return handleMatch();
+}
