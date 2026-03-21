@@ -29,8 +29,15 @@ export default function Home() {
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [inkyTipsOnly, setInkyTipsOnly] = useState(false);
   const [selectedReleaseType, setSelectedReleaseType] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
 
-  const fetchReleases = useCallback(async (page: number = 1, genres_filter: string[] = [], inkyTips: boolean = false, releaseType: string | null = null) => {
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(searchQuery), 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const fetchReleases = useCallback(async (page: number = 1, genres_filter: string[] = [], inkyTips: boolean = false, releaseType: string | null = null, query: string = "") => {
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
@@ -43,6 +50,9 @@ export default function Home() {
       }
       if (releaseType) {
         params.set("release_type", releaseType);
+      }
+      if (query) {
+        params.set("q", query);
       }
 
       const response = await fetch(`/api/releases?${params}`);
@@ -60,11 +70,11 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    fetchReleases(1, selectedGenres, inkyTipsOnly, selectedReleaseType);
-  }, [fetchReleases, selectedGenres, inkyTipsOnly, selectedReleaseType]);
+    fetchReleases(1, selectedGenres, inkyTipsOnly, selectedReleaseType, debouncedQuery);
+  }, [fetchReleases, selectedGenres, inkyTipsOnly, selectedReleaseType, debouncedQuery]);
 
   const handlePageChange = (page: number) => {
-    fetchReleases(page, selectedGenres, inkyTipsOnly, selectedReleaseType);
+    fetchReleases(page, selectedGenres, inkyTipsOnly, selectedReleaseType, debouncedQuery);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -79,6 +89,8 @@ export default function Home() {
     setSelectedGenres([]);
     setInkyTipsOnly(false);
     setSelectedReleaseType(null);
+    setSearchQuery("");
+    setDebouncedQuery("");
     setCurrentPage(1);
   };
 
@@ -104,6 +116,16 @@ export default function Home() {
       <main className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
         {/* Filters */}
         <div className="sticky top-[56px] sm:top-[76px] z-40 bg-zinc-950/95 backdrop-blur-sm -mx-4 px-4 py-2.5 mb-4 border-b border-zinc-800/50 space-y-1.5">
+          {/* Search */}
+          <div className="flex justify-center">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search artist or album…"
+              className="w-full max-w-sm px-3 py-1.5 text-xs bg-zinc-800 text-zinc-200 rounded-full border border-zinc-700 placeholder-zinc-500 focus:outline-none focus:border-zinc-500"
+            />
+          </div>
           {/* Row 1: All / INKY TIPS / Release Type */}
           <div className="flex flex-wrap justify-center gap-1.5">
             <button

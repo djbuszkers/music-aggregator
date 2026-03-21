@@ -27,9 +27,10 @@ export async function GET(request: NextRequest) {
     const genreFilter = genresParam ? genresParam.split(",").filter(Boolean) : undefined;
     const inkyTipsOnly = searchParams.get("inky_tips_only") === "true";
     const releaseType = searchParams.get("release_type") || undefined;
+    const searchQuery = searchParams.get("q") || undefined;
 
-    const releases = await getReleases(sourceId, PAGE_SIZE, offset, genreFilter, inkyTipsOnly, releaseType);
-    const totalCount = await getTotalReleases(sourceId, genreFilter, inkyTipsOnly, releaseType);
+    const releases = await getReleases(sourceId, PAGE_SIZE, offset, genreFilter, inkyTipsOnly, releaseType, searchQuery);
+    const totalCount = await getTotalReleases(sourceId, genreFilter, inkyTipsOnly, releaseType, searchQuery);
     const totalPages = Math.ceil(totalCount / PAGE_SIZE);
     const lastUpdated = await getLastUpdated();
     const genres = await getDistinctGenres();

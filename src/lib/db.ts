@@ -168,7 +168,7 @@ export async function updateSourceLastFetched(sourceId: number): Promise<void> {
   });
 }
 
-export async function getReleases(sourceId?: number, limit = 15, offset = 0, genres?: string[], inkyTipsOnly?: boolean, releaseType?: string): Promise<Release[]> {
+export async function getReleases(sourceId?: number, limit = 15, offset = 0, genres?: string[], inkyTipsOnly?: boolean, releaseType?: string, searchQuery?: string): Promise<Release[]> {
   await ensureInitialized();
   const database = getDb();
   let query = `
@@ -207,6 +207,11 @@ export async function getReleases(sourceId?: number, limit = 15, offset = 0, gen
     args.push(releaseType);
   }
 
+  if (searchQuery) {
+    query += " AND (r.artist LIKE ? OR r.title LIKE ? OR r.label LIKE ?)";
+    args.push(`%${searchQuery}%`, `%${searchQuery}%`, `%${searchQuery}%`);
+  }
+
   query += " ORDER BY r.published_at DESC LIMIT ? OFFSET ?";
   args.push(limit, offset);
 
@@ -214,7 +219,7 @@ export async function getReleases(sourceId?: number, limit = 15, offset = 0, gen
   return result.rows as unknown as Release[];
 }
 
-export async function getTotalReleases(sourceId?: number, genres?: string[], inkyTipsOnly?: boolean, releaseType?: string): Promise<number> {
+export async function getTotalReleases(sourceId?: number, genres?: string[], inkyTipsOnly?: boolean, releaseType?: string, searchQuery?: string): Promise<number> {
   await ensureInitialized();
   const database = getDb();
   let query = `
@@ -249,6 +254,11 @@ export async function getTotalReleases(sourceId?: number, genres?: string[], ink
   if (releaseType) {
     query += " AND r.release_type = ?";
     args.push(releaseType);
+  }
+
+  if (searchQuery) {
+    query += " AND (r.artist LIKE ? OR r.title LIKE ? OR r.label LIKE ?)";
+    args.push(`%${searchQuery}%`, `%${searchQuery}%`, `%${searchQuery}%`);
   }
 
   const result = await database.execute({ sql: query, args });
