@@ -207,21 +207,34 @@ export default function Home() {
                   {currentPage} / {pagination.totalPages}
                 </span>
 
-                {/* Desktop: full page numbers */}
+                {/* Desktop: windowed page numbers */}
                 <div className="hidden sm:flex items-center gap-1">
-                  {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map((page) => (
-                    <button
-                      key={page}
-                      onClick={() => handlePageChange(page)}
-                      className={`w-10 h-10 text-sm rounded ${
-                        page === currentPage
-                          ? "bg-white text-black font-semibold"
-                          : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  ))}
+                  {(() => {
+                    const total = pagination.totalPages;
+                    const cur = currentPage;
+                    const pages: (number | "…")[] = [];
+                    const add = (n: number) => { if (!pages.includes(n)) pages.push(n); };
+                    add(1);
+                    if (cur - 1 > 2) pages.push("…");
+                    for (let p = Math.max(2, cur - 1); p <= Math.min(total - 1, cur + 1); p++) add(p);
+                    if (cur + 1 < total - 1) pages.push("…");
+                    if (total > 1) add(total);
+                    return pages.map((p, i) =>
+                      p === "…" ? (
+                        <span key={`ellipsis-${i}`} className="w-8 text-center text-zinc-600 text-sm select-none">…</span>
+                      ) : (
+                        <button
+                          key={p}
+                          onClick={() => handlePageChange(p)}
+                          className={`w-10 h-10 text-sm rounded ${
+                            p === cur ? "bg-white text-black font-semibold" : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      )
+                    );
+                  })()}
                 </div>
 
                 <button

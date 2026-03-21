@@ -43,30 +43,31 @@ interface SpotifyMatch {
 function sanitizeForSearch(s: string): string {
   return s
     .replace(/[\u2018\u2019\u201A\u201B']/g, "")
-    .replace(/[\u201C\u201D\u201E\u201F"]/g, "");
+    .replace(/[\u201C\u201D\u201E\u201F"]/g, "")
+    .replace(/&/g, "and");
 }
 
 export async function searchSpotifyAlbum(artist: string, title: string): Promise<SpotifyMatch | null> {
   const token = await getAccessToken();
 
-  const query = `artist:${sanitizeForSearch(artist)} album:${sanitizeForSearch(title)}`;
-  const params = new URLSearchParams({
-    q: query,
-    type: "album",
-    limit: "1",
-  });
+  const structuredQuery = `artist:${sanitizeForSearch(artist)} album:${sanitizeForSearch(title)}`;
+  const fallbackQuery = `${sanitizeForSearch(artist)} ${sanitizeForSearch(title)}`;
 
-  const response = await fetch(`https://api.spotify.com/v1/search?${params}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  let album: Record<string, unknown> | null = null;
 
-  if (!response.ok) {
-    console.error(`Spotify search failed for "${artist} - ${title}": ${response.status}`);
-    return null;
+  for (const query of [structuredQuery, fallbackQuery]) {
+    const params = new URLSearchParams({ q: query, type: "album", limit: "1" });
+    const response = await fetch(`https://api.spotify.com/v1/search?${params}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      console.error(`Spotify search failed for "${artist} - ${title}": ${response.status}`);
+      return null;
+    }
+    const data = await response.json();
+    album = data.albums?.items?.[0] ?? null;
+    if (album) break;
   }
-
-  const data = await response.json();
-  const album = data.albums?.items?.[0];
 
   if (!album) {
     return null;
