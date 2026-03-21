@@ -111,7 +111,7 @@ All database functions are **async** and auto-initialize tables on first call.
 
 **Key functions in db.ts:**
 - `getSources()` / `getSourceByName(name)`
-- `getReleases(sourceId?, limit, offset, genres?, inkyTipsOnly?, releaseType?)` / `getReleaseById(id)`
+- `getReleases(sourceId?, limit, offset, genres?, inkyTipsOnly?, releaseType?, searchQuery?)` / `getReleaseById(id)`
 - `insertRelease(release)` - Deduplicates cross-source releases by artist+title (case-insensitive); keeps the release with the longer review_snippet. Backfills missing fields (label, genre, bandcamp data) on existing releases during dedup using COALESCE (never overwrites non-NULL with NULL). Also returns false on same-URL duplicates (UNIQUE constraint on review_url)
 
 ## Deployment
@@ -136,7 +136,7 @@ All database functions are **async** and auto-initialize tables on first call.
 - **YouTube Music:** Release cards link to matching YouTube Music videos. Uses YouTube Data API v3 (`youtube.ts`), filtered to music category. Matched data stored in `youtube_url` and `youtube_id` columns.
 - **Bandcamp:** Embedded player on release pages for albums with Bandcamp data. Album IDs extracted during scraping from Nowa Muzyka and Bandcamp Daily sources (`bandcamp.ts`). Data stored in `bandcamp_url` and `bandcamp_album_id` columns. Release cards also show a Bandcamp button linking to the album page.
 - **Deezer:** No authentication required (free public API). Uses `/search/album` endpoint with `artist:"X" album:"Y"` query syntax. Also provides release type inference via `record_type` field from `/album/{id}` endpoint. Matched data stored in `deezer_url` and `deezer_id` columns. API endpoint at `/api/deezer-match` for batch matching.
-- **Search query sanitization:** All streaming API clients (Spotify, YouTube, Deezer) strip or normalize curly/straight apostrophes and quotes from search queries, as these characters break field-based search syntax (especially Spotify's `artist:` / `album:` filters).
+- **Search query sanitization:** Spotify and Deezer replace `&` with `and` and normalize curly quotes before forming field-based queries (`artist:` / `album:`). Both also fall back to free-text search when the structured query returns no results. Deezer additionally tries a shortened artist name (dropping everything after `and`) as a third fallback, since streaming services sometimes index albums under a shorter artist name. YouTube uses free-text search only and is unaffected by these issues.
 
 ### Individual Release Pages
 
@@ -152,9 +152,11 @@ All database functions are **async** and auto-initialize tables on first call.
 - Filter bar shows only the 15 main categories; release cards still display granular genres (e.g. FOOTWORK, DEEP HOUSE)
 - Clicking a category filter expands to match all sub-genres via `expandGenreCategory()` (e.g. BASS matches FOOTWORK, UK FUNKY, BREAKS, RAVE, etc.)
 - `getDistinctGenres()` in `db.ts` returns only categories that have matching releases, ordered by `MAIN_GENRE_CATEGORIES`
-- Filters split into two centered rows: top row has All/INKY TIPS/release type (Single, EP, LP); bottom row has genre buttons
+- Filter bar has three rows: search input (free-text, debounced 300ms, queries artist/title/label); All/INKY TIPS/release type toggles; genre buttons
+- Search supports `?q=` param on `/api/releases` and is combinable with all other filters
 - Genre filtering supports multi-select with OR logic (selecting multiple genres shows releases matching any of them)
 - Genre buttons wrap on mobile; all filters are center-aligned
+- Pagination uses a windowed layout (first, current±1, last, with ellipses) instead of listing all pages
 - Streaming service buttons (Spotify, YouTube, Bandcamp, Deezer) displayed on a separate row below the title line on release cards
 - Release type classification: inferred from Spotify (`album_type` + `total_tracks`), then Deezer (`record_type`), then title heuristic as fallback. Stored in `release_type` column (Single / EP / LP)
 
