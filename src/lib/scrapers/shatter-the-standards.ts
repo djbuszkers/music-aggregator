@@ -106,7 +106,25 @@ interface ArticleDetails {
   starRating: number | null;
 }
 
-async function scrapeArticlePage(url: string): Promise<ArticleDetails> {
+async function fetchCoverImageFromPostApi(slug: string): Promise<string | null> {
+  try {
+    const data = (await fetchJson(`https://www.shatterthestandards.com/api/v1/posts/${slug}`)) as {
+      body_html?: string;
+    };
+    const bodyHtml = data.body_html || "";
+    // First img src in the body is the album cover — it's a Substack CDN URL
+    // containing the original S3 URL percent-encoded after the last slash segment.
+    const cdnMatch = bodyHtml.match(/src="(https:\/\/substackcdn\.com\/image\/fetch\/[^"]+)"/);
+    if (!cdnMatch) return null;
+    // Decode the original image URL from the CDN URL
+    const encoded = cdnMatch[1].match(/(https%3A%2F%2Fsubstack[^"&\s]+)/);
+    return encoded ? decodeURIComponent(encoded[1]) : cdnMatch[1];
+  } catch {
+    return null;
+  }
+}
+
+async function scrapeArticlePage(url: string, slug: string): Promise<ArticleDetails> {
   const html = await fetchPage(url);
   if (!html) {
     return { coverImage: null, reviewSnippet: null, genres: [], starRating: null };
@@ -114,8 +132,8 @@ async function scrapeArticlePage(url: string): Promise<ArticleDetails> {
 
   const $ = cheerio.load(html);
 
-  // Cover image from og:image
-  const coverImage = $('meta[property="og:image"]').attr("content") || null;
+  // Cover image: fetch from post API to get the actual album art (not the og:image social card)
+  const coverImage = await fetchCoverImageFromPostApi(slug);
 
   // Review snippet: collect substantial paragraphs from article body
   let reviewText = "";
@@ -231,7 +249,7 @@ export async function scrapeShatterTheStandards(): Promise<number> {
     // Fetch article page details
     let details: ArticleDetails;
     try {
-      details = await scrapeArticlePage(post.canonical_url);
+      details = await scrapeArticlePage(post.canonical_url, post.slug);
     } catch (err) {
       console.log(`Failed to fetch details for ${artist} - ${albumTitle}`);
       details = { coverImage: null, reviewSnippet: null, genres: [], starRating: null };
