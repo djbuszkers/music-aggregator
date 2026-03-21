@@ -4,6 +4,7 @@ import { scrapeBandcamp } from "@/lib/scrapers/bandcamp";
 import { scrapeInvertedAudio } from "@/lib/scrapers/inverted-audio";
 import { scrapeShatterTheStandards } from "@/lib/scrapers/shatter-the-standards";
 import { scrapeDjMag } from "@/lib/scrapers/djmag";
+import { scrapeSilentRadio } from "@/lib/scrapers/silent-radio";
 
 export const maxDuration = 300;
 
@@ -17,6 +18,7 @@ async function handleRefresh() {
       invertedAudio: 0,
       shatterTheStandards: 0,
       djMag: 0,
+      silentRadio: 0,
       total: 0,
     };
 
@@ -55,7 +57,14 @@ async function handleRefresh() {
       console.error("Error scraping DJ Mag:", error);
     }
 
-    results.total = results.nowaMuzyka + results.bandcamp + results.invertedAudio + results.shatterTheStandards + results.djMag;
+    // Scrape Silent Radio
+    try {
+      results.silentRadio = await scrapeSilentRadio();
+    } catch (error) {
+      console.error("Error scraping Silent Radio:", error);
+    }
+
+    results.total = results.nowaMuzyka + results.bandcamp + results.invertedAudio + results.shatterTheStandards + results.djMag + results.silentRadio;
 
     return NextResponse.json({
       success: true,

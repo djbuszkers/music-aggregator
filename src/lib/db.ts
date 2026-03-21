@@ -123,6 +123,7 @@ export async function initDb(): Promise<void> {
     ["Boomkat", "https://boomkat.com/weekly-roundup", "puppeteer"],
     ["Shatter the Standards", "https://www.shatterthestandards.com/feed", "cheerio"],
     ["DJ Mag", "https://djmag.com/reviews", "cheerio"],
+    ["Silent Radio", "https://www.silentradio.co.uk/category/reviews/album-reviews/", "cheerio"],
   ];
 
   for (const [name, url, scraper_type] of sources) {
@@ -140,6 +141,11 @@ export async function initDb(): Promise<void> {
   await database.execute({
     sql: `UPDATE sources SET url = ? WHERE name = ?`,
     args: ["https://boomkat.com/weekly-roundup", "Boomkat"],
+  });
+  // Ensure Silent Radio is present (for instances where initDb ran before this source was added)
+  await database.execute({
+    sql: `INSERT OR IGNORE INTO sources (name, url, scraper_type) VALUES (?, ?, ?)`,
+    args: ["Silent Radio", "https://www.silentradio.co.uk/category/reviews/album-reviews/", "cheerio"],
   });
 }
 
