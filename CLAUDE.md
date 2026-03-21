@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**OctoCrate** — music aggregator website for a DJ/radio host. Aggregates album reviews from 7 curated sources into a unified feed.
+**OctoCrate** — music aggregator website for a DJ/radio host. Aggregates album reviews from 8 curated sources into a unified feed.
 
 **Tech Stack:** Next.js 14.2 (App Router), TypeScript, Tailwind CSS, Turso (libSQL) for database, deployed on Vercel with cron jobs.
 
@@ -51,6 +51,7 @@ YOUTUBE_API_KEY=<youtube-data-api-v3-key>
 5. **Inverted Audio** - RSS feed with HTML scraping for details
 6. **Shatter the Standards** - Substack archive API + Cheerio scraping; covers soul, R&B, hip-hop, neo-soul
 7. **DJ Mag** - HTML scraping with Cheerio (no RSS feed); albums pass through unfiltered, EPs filtered by genre allowlist
+8. **Silent Radio** - Archive page walking with Cheerio; dates parsed from JSON-LD (CDATA-wrapped); URL-based date fallback for articles missing structured data
 
 ### Key Files
 
@@ -91,8 +92,9 @@ src/
         ├── ra.ts
         ├── boomkat.ts
         ├── inverted-audio.ts
-        ├── shatter-the-standards.ts  # Substack archive API + Cheerio
-        └── djmag.ts              # HTML scraping (albums + genre-filtered EPs)
+        ├── shatter-the-standards.ts  # Substack archive API + post API for cover images
+        ├── djmag.ts              # HTML scraping (albums + genre-filtered EPs)
+        └── silent-radio.ts       # Archive page walking + JSON-LD date parsing
 public/
 ├── octocrate-logo.svg        # OctoCrate logo (tentacle + vinyl, transparent bg)
 ├── manifest.json             # PWA manifest (background_color: #09090b)
@@ -125,7 +127,7 @@ All database functions are **async** and auto-initialize tables on first call.
 - All scrapers filter for 2026 releases only (`published_at >= '2026-01-01'`)
 - Scrapers include delays between requests (300-500ms) to respect rate limits
 - Genres are normalized to uppercase, comma-separated format
-- Cover images fetched from og:image or article content
+- Cover images fetched from og:image or article content. Shatter the Standards uses `/api/v1/posts/{slug}` (Substack post API) to get `body_html` and extract the first image — `og:image` on Substack is a generated social card with text overlay, not the album art. Silent Radio uses `og:image` which is correct.
 - Store review snippets (first ~650 chars of review text)
 - Cross-source duplicates are deduplicated by artist+title; the release with the longest review snippet wins
 - Record labels extracted from Bandcamp album pages via JSON-LD (`albumRelease[0].recordLabel.name`); not all albums have labels (self-released)
@@ -137,6 +139,7 @@ All database functions are **async** and auto-initialize tables on first call.
 - **Bandcamp:** Embedded player on release pages for albums with Bandcamp data. Album IDs extracted during scraping from Nowa Muzyka and Bandcamp Daily sources (`bandcamp.ts`). Data stored in `bandcamp_url` and `bandcamp_album_id` columns. Release cards also show a Bandcamp button linking to the album page.
 - **Deezer:** No authentication required (free public API). Uses `/search/album` endpoint with `artist:"X" album:"Y"` query syntax. Also provides release type inference via `record_type` field from `/album/{id}` endpoint. Matched data stored in `deezer_url` and `deezer_id` columns. API endpoint at `/api/deezer-match` for batch matching.
 - **Search query sanitization:** Spotify and Deezer replace `&` with `and` and normalize curly quotes before forming field-based queries (`artist:` / `album:`). Both also fall back to free-text search when the structured query returns no results. Deezer additionally tries a shortened artist name (dropping everything after `and`) as a third fallback, since streaming services sometimes index albums under a shorter artist name. YouTube uses free-text search only and is unaffected by these issues.
+- **Spotify fallback relevance check:** The free-text fallback requires at least one word (>3 chars) from the query to match exactly in the result's artist+title. This prevents false positives where Spotify returns a completely unrelated album (e.g. album not on Spotify at all). Limit bumped to 5 candidates to check before giving up.
 
 ### Individual Release Pages
 
@@ -152,7 +155,7 @@ All database functions are **async** and auto-initialize tables on first call.
 - Filter bar shows only the 15 main categories; release cards still display granular genres (e.g. FOOTWORK, DEEP HOUSE)
 - Clicking a category filter expands to match all sub-genres via `expandGenreCategory()` (e.g. BASS matches FOOTWORK, UK FUNKY, BREAKS, RAVE, etc.)
 - `getDistinctGenres()` in `db.ts` returns only categories that have matching releases, ordered by `MAIN_GENRE_CATEGORIES`
-- Filter bar has three rows: search input (free-text, debounced 300ms, queries artist/title/label); All/INKY TIPS/release type toggles; genre buttons
+- Filter bar has four rows: search input (free-text, debounced 300ms, queries artist/title/label); All/INKY TIPS/release type toggles; source filter buttons; genre buttons
 - Search supports `?q=` param on `/api/releases` and is combinable with all other filters
 - Genre filtering supports multi-select with OR logic (selecting multiple genres shows releases matching any of them)
 - Genre buttons wrap on mobile; all filters are center-aligned
@@ -178,9 +181,28 @@ All database functions are **async** and auto-initialize tables on first call.
 2. Add source to `initDb()` in `db.ts`
 3. Import and call in `src/app/api/refresh/route.ts`
 
+**Run streaming matching for new releases:**
+```bash
+curl -X POST http://localhost:3000/api/spotify-match
+curl -X POST http://localhost:3000/api/deezer-match
+npx dotenv-cli -e .env.local -- npx tsx scripts/match-youtube.ts
+```
+
 **Debug scraper issues:**
 - Check terminal logs during `npm run dev`
 - Scrapers log skipped items (not 2026) and added items
+
+**Silent Radio scraper notes:**
+- Walks listing pages up to MAX_PAGES=10, stops when no article URL has month ≤ current month
+- JSON-LD dates use space separator (`2026-03-20 10:52:20`) — replaced with `T` before parsing
+- Some articles have CDATA-wrapped JSON-LD (`/*<![CDATA[*/.../*]]>*/`) — stripped before `JSON.parse`
+- URL-based date fallback (`/MM/DD/` + current year) used only for months ≤ current month
+- `for...of` on `Set` requires `Array.from()` due to TypeScript downlevelIteration target
+
+**Shatter the Standards scraper notes:**
+- Cover image fetched from `/api/v1/posts/{slug}` `body_html`, first `substackcdn.com` img src
+- CDN URL format: `substackcdn.com/image/fetch/.../https%3A%2F%2Fsubstack-post-media...` — decode with `decodeURIComponent`
+- `og:image` must NOT be used — it's a Substack-generated social card with text overlay
 
 **Test database connection:**
 ```bash
