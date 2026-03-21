@@ -16,6 +16,7 @@ interface ReleasesResponse {
   releases: Release[];
   lastUpdated: string | null;
   genres: string[];
+  sources: string[];
   pagination: Pagination;
 }
 
@@ -26,7 +27,9 @@ export default function Home() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [genres, setGenres] = useState<string[]>([]);
+  const [sources, setSources] = useState<string[]>([]);
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
+  const [selectedSource, setSelectedSource] = useState<string | null>(null);
   const [inkyTipsOnly, setInkyTipsOnly] = useState(false);
   const [selectedReleaseType, setSelectedReleaseType] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -37,7 +40,7 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const fetchReleases = useCallback(async (page: number = 1, genres_filter: string[] = [], inkyTips: boolean = false, releaseType: string | null = null, query: string = "") => {
+  const fetchReleases = useCallback(async (page: number = 1, genres_filter: string[] = [], inkyTips: boolean = false, releaseType: string | null = null, query: string = "", source: string | null = null) => {
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
@@ -54,6 +57,9 @@ export default function Home() {
       if (query) {
         params.set("q", query);
       }
+      if (source) {
+        params.set("source", source);
+      }
 
       const response = await fetch(`/api/releases?${params}`);
       const data: ReleasesResponse = await response.json();
@@ -61,6 +67,7 @@ export default function Home() {
       setLastUpdated(data.lastUpdated);
       setPagination(data.pagination);
       setGenres(data.genres || []);
+      setSources(data.sources || []);
       setCurrentPage(page);
     } catch (error) {
       console.error("Failed to fetch releases:", error);
@@ -70,11 +77,11 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    fetchReleases(1, selectedGenres, inkyTipsOnly, selectedReleaseType, debouncedQuery);
-  }, [fetchReleases, selectedGenres, inkyTipsOnly, selectedReleaseType, debouncedQuery]);
+    fetchReleases(1, selectedGenres, inkyTipsOnly, selectedReleaseType, debouncedQuery, selectedSource);
+  }, [fetchReleases, selectedGenres, inkyTipsOnly, selectedReleaseType, debouncedQuery, selectedSource]);
 
   const handlePageChange = (page: number) => {
-    fetchReleases(page, selectedGenres, inkyTipsOnly, selectedReleaseType, debouncedQuery);
+    fetchReleases(page, selectedGenres, inkyTipsOnly, selectedReleaseType, debouncedQuery, selectedSource);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -87,10 +94,16 @@ export default function Home() {
 
   const handleClearGenres = () => {
     setSelectedGenres([]);
+    setSelectedSource(null);
     setInkyTipsOnly(false);
     setSelectedReleaseType(null);
     setSearchQuery("");
     setDebouncedQuery("");
+    setCurrentPage(1);
+  };
+
+  const handleSourceToggle = (source: string) => {
+    setSelectedSource((prev) => prev === source ? null : source);
     setCurrentPage(1);
   };
 
@@ -131,7 +144,7 @@ export default function Home() {
             <button
               onClick={handleClearGenres}
               className={`px-3 py-1.5 sm:px-2.5 sm:py-1 text-xs rounded-full transition-colors whitespace-nowrap flex-shrink-0 ${
-                selectedGenres.length === 0 && !inkyTipsOnly && !selectedReleaseType
+                selectedGenres.length === 0 && !selectedSource && !inkyTipsOnly && !selectedReleaseType
                   ? "bg-white text-black font-medium"
                   : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
               }`}
@@ -165,7 +178,25 @@ export default function Home() {
               </button>
             ))}
           </div>
-          {/* Row 2: Genres */}
+          {/* Row 2: Sources */}
+          {sources.length > 0 && (
+            <div className="flex flex-wrap justify-center gap-1.5">
+              {sources.map((source) => (
+                <button
+                  key={source}
+                  onClick={() => handleSourceToggle(source)}
+                  className={`px-3 py-1.5 sm:px-2.5 sm:py-1 text-xs rounded-full transition-colors whitespace-nowrap flex-shrink-0 ${
+                    selectedSource === source
+                      ? "bg-white text-black font-medium"
+                      : "bg-zinc-800/60 text-zinc-500 hover:bg-zinc-700 hover:text-zinc-300"
+                  }`}
+                >
+                  {source}
+                </button>
+              ))}
+            </div>
+          )}
+          {/* Row 3: Genres */}
           <div className="flex flex-wrap justify-center gap-1.5">
             {genres.map((genre) => (
               <button

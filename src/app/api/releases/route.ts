@@ -11,10 +11,10 @@ export async function GET(request: NextRequest) {
     const genresParam = searchParams.get("genres");
 
     let sourceId: number | undefined;
+    const allSources = await getSources();
 
     if (sourceParam) {
-      const sources = await getSources();
-      const source = sources.find(
+      const source = allSources.find(
         (s) => s.name.toLowerCase() === sourceParam.toLowerCase()
       );
       if (source) {
@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
       releases,
       lastUpdated,
       genres,
+      sources: allSources.map((s) => s.name),
       pagination: {
         page,
         pageSize: PAGE_SIZE,
