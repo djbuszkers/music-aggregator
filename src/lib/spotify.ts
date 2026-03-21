@@ -56,8 +56,10 @@ export async function searchSpotifyAlbum(artist: string, title: string): Promise
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let album: any = null;
 
-  for (const query of [structuredQuery, fallbackQuery]) {
-    const params = new URLSearchParams({ q: query, type: "album", limit: "1" });
+  const queries = [structuredQuery, fallbackQuery];
+  for (let i = 0; i < queries.length; i++) {
+    const query = queries[i];
+    const params = new URLSearchParams({ q: query, type: "album", limit: "5" });
     const response = await fetch(`https://api.spotify.com/v1/search?${params}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -66,7 +68,21 @@ export async function searchSpotifyAlbum(artist: string, title: string): Promise
       return null;
     }
     const data = await response.json();
-    album = data.albums?.items?.[0] ?? null;
+    const items: any[] = data.albums?.items ?? [];
+    if (i === 0) {
+      // Structured query: trust the first result
+      album = items[0] ?? null;
+    } else {
+      // Free-text fallback: require at least one word to match exactly
+      // (word-level, not substring) to avoid false positives
+      const queryWords = sanitizeForSearch(`${artist} ${title}`)
+        .toLowerCase().split(/\s+/).filter((w: string) => w.length > 3);
+      album = items.find((item: any) => {
+        const resultWords = `${item.artists?.[0]?.name ?? ""} ${item.name}`
+          .toLowerCase().split(/\s+/);
+        return queryWords.some((w: string) => resultWords.includes(w));
+      }) ?? null;
+    }
     if (album) break;
   }
 
