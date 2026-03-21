@@ -56,7 +56,7 @@ async function scrapeArticle(url: string): Promise<{ coverImage: string | null; 
   const coverImage = $('meta[property="og:image"]').attr("content") || null;
 
   let snippet: string | null = null;
-  $("article p, .entry-content p, .post-content p").each((_, el) => {
+  $(".postcontent p, .entry-content p, article p").each((_, el) => {
     if (snippet) return;
     const text = $(el).text().trim();
     if (text.length > 80) {
