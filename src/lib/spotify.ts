@@ -53,7 +53,8 @@ export async function searchSpotifyAlbum(artist: string, title: string): Promise
   const structuredQuery = `artist:${sanitizeForSearch(artist)} album:${sanitizeForSearch(title)}`;
   const fallbackQuery = `${sanitizeForSearch(artist)} ${sanitizeForSearch(title)}`;
 
-  let album: Record<string, unknown> | null = null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let album: any = null;
 
   for (const query of [structuredQuery, fallbackQuery]) {
     const params = new URLSearchParams({ q: query, type: "album", limit: "1" });
