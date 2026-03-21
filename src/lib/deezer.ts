@@ -27,7 +27,10 @@ export interface DeezerMatch {
 }
 
 function normalizeQuotes(s: string): string {
-  return s.replace(/[\u2018\u2019\u201A\u201B]/g, "'").replace(/[\u201C\u201D\u201E\u201F]/g, '"');
+  return s
+    .replace(/[\u2018\u2019\u201A\u201B]/g, "'")
+    .replace(/[\u201C\u201D\u201E\u201F]/g, '"')
+    .replace(/&/g, "and");
 }
 
 export async function searchDeezerAlbum(
@@ -35,28 +38,40 @@ export async function searchDeezerAlbum(
   title: string
 ): Promise<DeezerMatch | null> {
   try {
-    const query = `artist:"${normalizeQuotes(artist)}" album:"${normalizeQuotes(title)}"`;
+    const sanitizedArtist = normalizeQuotes(artist);
+    const sanitizedTitle = normalizeQuotes(title);
+    // If artist contains &, also try with just the part before it (e.g. "Avalon Emerson & The Charm" → "Avalon Emerson")
+    const shortArtist = sanitizedArtist.includes(" and ")
+      ? sanitizedArtist.split(" and ")[0].trim()
+      : sanitizedArtist;
 
-    const url = `https://api.deezer.com/search/album?q=${encodeURIComponent(query)}`;
+    const queries = [
+      `artist:"${sanitizedArtist}" album:"${sanitizedTitle}"`,
+      `${sanitizedArtist} ${sanitizedTitle}`,
+      ...(shortArtist !== sanitizedArtist ? [`${shortArtist} ${sanitizedTitle}`] : []),
+    ];
 
-    const response = await fetch(url);
+    for (const query of queries) {
+      const url = `https://api.deezer.com/search/album?q=${encodeURIComponent(query)}`;
+      const response = await fetch(url);
 
-    if (!response.ok) {
-      console.error(`Deezer search failed for "${artist} - ${title}": ${response.status}`);
-      return null;
+      if (!response.ok) {
+        console.error(`Deezer search failed for "${artist} - ${title}": ${response.status}`);
+        return null;
+      }
+
+      const data: DeezerSearchResponse = await response.json();
+
+      if (data.data && data.data.length > 0) {
+        const album = data.data[0];
+        return {
+          deezerUrl: album.link,
+          deezerId: album.id.toString(),
+        };
+      }
     }
 
-    const data: DeezerSearchResponse = await response.json();
-
-    if (!data.data || data.data.length === 0) {
-      return null;
-    }
-
-    const album = data.data[0];
-    return {
-      deezerUrl: album.link,
-      deezerId: album.id.toString(),
-    };
+    return null;
   } catch (error) {
     console.error("Error searching Deezer:", error);
     return null;
