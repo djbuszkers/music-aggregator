@@ -231,7 +231,7 @@ export async function scrapeSilentRadio(): Promise<number> {
 
   const currentYear = new Date().getFullYear();
 
-  for (const url of allUrls) {
+  for (const url of Array.from(allUrls)) {
     // Infer date from URL path as last-resort fallback: /MM/DD/ + current year.
     // Only use for months <= current month to avoid misclassifying prior-year articles.
     const urlDateMatch = url.match(/\/(\d{2})\/(\d{2})\//);
