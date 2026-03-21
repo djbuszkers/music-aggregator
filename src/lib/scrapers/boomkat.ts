@@ -152,7 +152,7 @@ export async function scrapeBoomkat(): Promise<number> {
               !l.includes("ALBUM OF THE WEEK") &&
               !l.includes("SINGLE OF THE WEEK") &&
               !l.includes("Quick View") &&
-              !l.match(/^(MP3|FLAC|WAV|LP|CD|TAPE|VINYL|12"|7"|CASSETTE|LIMITED|BLACK|COLOUR)/)
+              !l.match(/^(MP3|FLAC|WAV|LP|CD|TAPE|VINYL|12"|7"|CASSETTE|LIMITED|BLACK|COLOUR|GATEFOLD|\d+\s*[Xx]\s*\d+)/)
           );
 
         if (lines.length < 2) return;
@@ -161,12 +161,15 @@ export async function scrapeBoomkat(): Promise<number> {
         const artist = lines[0];
         const title = lines[1];
 
-        // Skip if artist looks wrong
+        // Skip if artist looks wrong or is a format descriptor
         if (
           artist.length < 2 ||
           artist.length > 100 ||
           artist.includes("more") ||
-          artist.match(/^\d+$/)
+          artist.match(/^\d+$/) ||
+          artist.match(/^(GATEFOLD|VINYL|LP|EP|CD|TAPE|CASSETTE|\d+\s*[Xx]\s*\d+)/i) ||
+          artist.includes("(BLACK VINYL)") ||
+          artist.includes("(COLOUR VINYL)")
         ) {
           return;
         }

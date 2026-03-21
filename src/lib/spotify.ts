@@ -38,6 +38,36 @@ interface SpotifyMatch {
   spotifyUrl: string;
   spotifyId: string;
   releaseType: string | null;
+  label: string | null;
+}
+
+function parseLabelFromCopyrights(copyrights: Array<{ text: string; type: string }>): string | null {
+  // Prefer phonographic copyright (P) over general copyright (C) — more specific to the label
+  const entry = copyrights.find((c) => c.type === "P") || copyrights.find((c) => c.type === "C");
+  if (!entry) return null;
+  // Strip leading symbols (©, ℗, (P), (C)), then the year
+  const text = entry.text
+    .replace(/^[\s©℗]+/, "")
+    .replace(/^\(P\)\s*/i, "")
+    .replace(/^\(C\)\s*/i, "")
+    .replace(/^\d{4}\s+/, "")
+    .trim();
+  return text || null;
+}
+
+async function fetchAlbumDetails(albumId: string, token: string): Promise<{ label: string | null }> {
+  try {
+    const albumRes = await fetch(`https://api.spotify.com/v1/albums/${albumId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!albumRes.ok) return { label: null };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const album: any = await albumRes.json();
+    const label = parseLabelFromCopyrights((album.copyrights as Array<{ text: string; type: string }>) || []);
+    return { label };
+  } catch {
+    return { label: null };
+  }
 }
 
 function sanitizeForSearch(s: string): string {
@@ -99,9 +129,12 @@ export async function searchSpotifyAlbum(artist: string, title: string): Promise
     releaseType = "LP";
   }
 
+  const { label } = await fetchAlbumDetails(album.id, token);
+
   return {
     spotifyUrl: album.external_urls?.spotify ?? "",
     spotifyId: album.id,
     releaseType,
+    label,
   };
 }

@@ -17,8 +17,8 @@ export async function POST() {
         const result = await searchSpotifyAlbum(release.artist, release.title);
 
         if (result && result.spotifyUrl) {
-          await updateReleaseSpotify(release.id, result.spotifyUrl, result.spotifyId);
-          console.log(`Matched: ${release.artist} - ${release.title} → ${result.spotifyUrl}`);
+          await updateReleaseSpotify(release.id, result.spotifyUrl, result.spotifyId, result.releaseType, result.label);
+          console.log(`Matched: ${release.artist} - ${release.title} → ${result.spotifyUrl}${result.label ? ` [${result.label}]` : ""}`);
           matched++;
         } else {
           console.log(`No match: ${release.artist} - ${release.title}`);

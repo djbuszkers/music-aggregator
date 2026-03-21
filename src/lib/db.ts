@@ -426,11 +426,11 @@ export async function getReleasesWithoutSpotify(): Promise<Release[]> {
   return result.rows as unknown as Release[];
 }
 
-export async function updateReleaseSpotify(releaseId: number, spotifyUrl: string, spotifyId: string, releaseType?: string | null): Promise<void> {
+export async function updateReleaseSpotify(releaseId: number, spotifyUrl: string, spotifyId: string, releaseType?: string | null, label?: string | null): Promise<void> {
   const database = getDb();
   await database.execute({
-    sql: `UPDATE releases SET spotify_url = ?, spotify_id = ?, release_type = COALESCE(?, release_type) WHERE id = ?`,
-    args: [spotifyUrl, spotifyId, releaseType ?? null, releaseId],
+    sql: `UPDATE releases SET spotify_url = ?, spotify_id = ?, release_type = COALESCE(?, release_type), label = COALESCE(label, ?) WHERE id = ?`,
+    args: [spotifyUrl, spotifyId, releaseType ?? null, label ?? null, releaseId],
   });
 }
 

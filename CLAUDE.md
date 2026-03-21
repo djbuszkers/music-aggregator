@@ -131,6 +131,7 @@ All database functions are **async** and auto-initialize tables on first call.
 - Store review snippets (first ~650 chars of review text)
 - Cross-source duplicates are deduplicated by artist+title; the release with the longest review snippet wins
 - Record labels extracted from Bandcamp album pages via JSON-LD (`albumRelease[0].recordLabel.name`); not all albums have labels (self-released)
+- Labels are also backfilled during Spotify matching via the `/albums/{id}` endpoint `copyrights[]` array. Spotify's `label` field was deprecated and no longer returned; `copyrights[].text` is parsed instead by stripping leading `©`, `℗`, `(P)`, `(C)` symbols and the year prefix
 
 ### Streaming Service Integration
 
@@ -140,6 +141,7 @@ All database functions are **async** and auto-initialize tables on first call.
 - **Deezer:** No authentication required (free public API). Uses `/search/album` endpoint with `artist:"X" album:"Y"` query syntax. Also provides release type inference via `record_type` field from `/album/{id}` endpoint. Matched data stored in `deezer_url` and `deezer_id` columns. API endpoint at `/api/deezer-match` for batch matching.
 - **Search query sanitization:** Spotify and Deezer replace `&` with `and` and normalize curly quotes before forming field-based queries (`artist:` / `album:`). Both also fall back to free-text search when the structured query returns no results. Deezer additionally tries a shortened artist name (dropping everything after `and`) as a third fallback, since streaming services sometimes index albums under a shorter artist name. YouTube uses free-text search only and is unaffected by these issues.
 - **Spotify fallback relevance check:** The free-text fallback requires at least one word (>3 chars) from the query to match exactly in the result's artist+title. This prevents false positives where Spotify returns a completely unrelated album (e.g. album not on Spotify at all). Limit bumped to 5 candidates to check before giving up.
+- **Spotify artist genres deprecated:** The `/artists/{id}` endpoint no longer returns `genres` or `popularity` fields — only `id`, `name`, `images`, `external_urls`, `href`, `type`, `uri`. Do not attempt artist-level genre lookup via Spotify.
 
 ### Individual Release Pages
 
@@ -203,6 +205,11 @@ npx dotenv-cli -e .env.local -- npx tsx scripts/match-youtube.ts
 - Cover image fetched from `/api/v1/posts/{slug}` `body_html`, first `substackcdn.com` img src
 - CDN URL format: `substackcdn.com/image/fetch/.../https%3A%2F%2Fsubstack-post-media...` — decode with `decodeURIComponent`
 - `og:image` must NOT be used — it's a Substack-generated social card with text overlay
+
+**Boomkat scraper notes:**
+- Requires Puppeteer; walks `/weekly-roundup` page and then visits each product page for date, genre, description
+- Product card lines: line 0 = artist, line 1 = title, line 2 = label, line 3+ = genre
+- Format descriptor lines (GATEFOLD, `2 X 12"`, VINYL, LP, CD, etc.) are filtered from the lines array before parsing and also checked in artist validation — these appeared as corrupt artist names in early versions
 
 **Test database connection:**
 ```bash
