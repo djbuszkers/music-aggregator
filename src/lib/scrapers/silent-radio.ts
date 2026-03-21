@@ -1,14 +1,7 @@
-import Parser from "rss-parser";
 import * as cheerio from "cheerio";
 import { getSourceByName, insertRelease, updateSourceLastFetched } from "../db";
 import { normalizeGenre } from "../utils";
 import type { ReleaseInput } from "../types";
-
-const parser = new Parser({
-  customFields: {
-    item: [["content:encoded", "contentEncoded"]],
-  },
-});
 
 // Words that should stay lowercase in title case (unless first word)
 const LOWERCASE_WORDS = new Set(["a", "an", "the", "and", "but", "or", "nor", "for", "so", "yet", "at", "by", "in", "of", "on", "to", "as"]);
@@ -31,23 +24,19 @@ function toTitleCase(s: string): string {
 //   "ALBUM REVIEW – ARTIST: ALBUM TITLE"
 //   "ALBUM REVIEW: ARTIST – ALBUM TITLE"
 function parseArtistTitle(rawTitle: string): { artist: string; title: string } | null {
-  // Must be an album review — skip live reviews, roundups, etc.
   if (!/^album\s+review/i.test(rawTitle)) return null;
   if (/roundup|week ending/i.test(rawTitle)) return null;
 
-  // Format 1: "ALBUM REVIEW – ARTIST: TITLE"
   const format1 = rawTitle.match(/^album\s+review\s*[–—-]+\s*(.+?):\s*(.+)$/i);
   if (format1) {
     return { artist: toTitleCase(format1[1].trim()), title: toTitleCase(format1[2].trim()) };
   }
 
-  // Format 2: "ALBUM REVIEW: ARTIST – TITLE"
   const format2 = rawTitle.match(/^album\s+review\s*:\s*(.+?)\s*[–—-]+\s*(.+)$/i);
   if (format2) {
     return { artist: toTitleCase(format2[1].trim()), title: toTitleCase(format2[2].trim()) };
   }
 
-  // Format 3: "ALBUM REVIEW – ARTIST – TITLE" (both separators are dashes)
   const format3 = rawTitle.match(/^album\s+review\s*[–—-]+\s*(.+?)\s*[–—-]+\s*(.+)$/i);
   if (format3) {
     return { artist: toTitleCase(format3[1].trim()), title: toTitleCase(format3[2].trim()) };
@@ -66,7 +55,7 @@ async function fetchPage(url: string): Promise<string> {
   return response.text();
 }
 
-// Ordered from most to least specific to avoid false positives (e.g. match "post-punk" before "punk")
+// Ordered from most to least specific to avoid false positives
 const GENRE_KEYWORDS: [RegExp, string][] = [
   [/\bpost[- ]punk\b/i, "POST-PUNK"],
   [/\bpost[- ]rock\b/i, "POST ROCK"],
@@ -110,14 +99,50 @@ function detectGenresFromText(text: string): string[] {
     if (pattern.test(text) && !found.includes(genre)) {
       found.push(genre);
     }
-    if (found.length >= 3) break; // cap at 3 to avoid noise
+    if (found.length >= 3) break;
   }
   return found;
 }
 
-async function scrapeArticle(url: string): Promise<{ coverImage: string | null; snippet: string | null; reviewText: string }> {
+interface ArticleDetails {
+  title: string | null;
+  publishedAt: string | null;
+  coverImage: string | null;
+  snippet: string | null;
+  reviewText: string;
+}
+
+async function scrapeArticle(url: string, urlDateFallback?: string): Promise<ArticleDetails> {
   const html = await fetchPage(url);
   const $ = cheerio.load(html);
+
+  const title = $("h1").first().text().trim() || null;
+
+  // Date format: "Friday, March 20, 2026" or "20 MARCH 2026"
+  let publishedAt: string | null = null;
+  const dateText = $(".date, .post-date, time").first().text().trim();
+  if (dateText) {
+    const parsed = new Date(dateText);
+    if (!isNaN(parsed.getTime())) {
+      publishedAt = parsed.toISOString();
+    }
+  }
+  // Fallback: JSON-LD datePublished
+  if (!publishedAt) {
+    $("script[type='application/ld+json']").each((_, el) => {
+      if (publishedAt) return;
+      try {
+        const raw = ($(el).html() || "").replace(/\/\*<!\[CDATA\[\*\//g, "").replace(/\/\*\]\]>\*\//g, "").trim();
+        const data = JSON.parse(raw || "{}");
+        const dp = data.datePublished || data.dateModified;
+        if (dp) publishedAt = new Date(String(dp).replace(" ", "T")).toISOString();
+      } catch { /* ignore */ }
+    });
+  }
+  // Last resort: use date inferred from URL path (MM/DD + current year)
+  if (!publishedAt && urlDateFallback) {
+    publishedAt = urlDateFallback;
+  }
 
   const coverImage = $('meta[property="og:image"]').attr("content") || null;
 
@@ -132,14 +157,23 @@ async function scrapeArticle(url: string): Promise<{ coverImage: string | null; 
     ? (reviewText.length > 650 ? reviewText.substring(0, 650) + "..." : reviewText)
     : null;
 
-  return { coverImage, snippet, reviewText };
+  return { title, publishedAt, coverImage, snippet, reviewText };
 }
 
-// RSS categories include artist/label names — filter out known non-genre tags
-const SKIP_CATEGORIES = new Set(["albums", "reviews", "features", "news", "live", "slider", "uncategorized"]);
-
-function extractGenresFromCategories(categories: string[]): string[] {
-  return categories.filter(c => !SKIP_CATEGORIES.has(c.toLowerCase()) && c.length < 30);
+function getArticleUrlsFromListingPage(html: string): string[] {
+  const $ = cheerio.load(html);
+  const urls = new Set<string>();
+  $("a[href]").each((_, el) => {
+    const href = $(el).attr("href") || "";
+    // Match article URLs: /MM/DD/slug/ — skip roundups, live reviews, gig guides
+    if (
+      /^https:\/\/www\.silentradio\.co\.uk\/\d{2}\/\d{2}\//.test(href) &&
+      !/album-roundup|live-review|gig-guide|single-review|ep-review/.test(href)
+    ) {
+      urls.add(href.replace(/\/$/, "") + "/");
+    }
+  });
+  return Array.from(urls);
 }
 
 export async function scrapeSilentRadio(): Promise<number> {
@@ -149,55 +183,104 @@ export async function scrapeSilentRadio(): Promise<number> {
     return 0;
   }
 
-  console.log("Fetching Silent Radio RSS feed...");
+  console.log("Scraping Silent Radio archive pages...");
 
-  const feed = await parser.parseURL("https://www.silentradio.co.uk/feed/rss/");
+  const allUrls = new Set<string>();
+  let page = 1;
+  let foundAny2026 = true;
+
+  const currentMonth = new Date().getMonth() + 1; // 1-12
+  const MAX_PAGES = 10; // safety ceiling
+
+  // Walk listing pages until all article URLs on a page are from months > currentMonth
+  // (indicating they're all from last year). Cap at MAX_PAGES.
+  while (foundAny2026 && page <= MAX_PAGES) {
+    const listingUrl = page === 1
+      ? "https://www.silentradio.co.uk/category/reviews/album-reviews/"
+      : `https://www.silentradio.co.uk/category/reviews/album-reviews/page/${page}/`;
+
+    let listingHtml: string;
+    try {
+      listingHtml = await fetchPage(listingUrl);
+    } catch {
+      break;
+    }
+
+    // Stop if we got a 404
+    if (listingHtml.includes("Error 404") || listingHtml.includes("Page not found")) break;
+
+    const pageUrls = getArticleUrlsFromListingPage(listingHtml);
+    if (pageUrls.length === 0) break;
+
+    // Check if this page has any articles from months <= currentMonth (plausibly 2026).
+    // URL format: /MM/DD/slug — extract month numbers.
+    const hasPlausible2026 = pageUrls.some(url => {
+      const m = url.match(/\/(\d{2})\/\d{2}\//);
+      return m && parseInt(m[1], 10) <= currentMonth;
+    });
+    if (!hasPlausible2026) { foundAny2026 = false; break; }
+
+    for (const url of pageUrls) allUrls.add(url);
+    page++;
+    await new Promise(r => setTimeout(r, 300));
+  }
+
+  console.log(`Found ${allUrls.size} candidate article URLs across ${page - 1} pages`);
+
   let newCount = 0;
 
-  for (const item of feed.items) {
-    if (!item.title || !item.link || !item.pubDate) continue;
+  const currentYear = new Date().getFullYear();
 
-    const publishedAt = new Date(item.pubDate).toISOString();
-    if (!publishedAt.startsWith("2026")) {
-      console.log(`Skipping (not 2026): ${item.title}`);
-      continue;
-    }
+  for (const url of allUrls) {
+    // Infer date from URL path as last-resort fallback: /MM/DD/ + current year.
+    // Only use for months <= current month to avoid misclassifying prior-year articles.
+    const urlDateMatch = url.match(/\/(\d{2})\/(\d{2})\//);
+    const urlMonth = urlDateMatch ? parseInt(urlDateMatch[1], 10) : 0;
+    const urlDateFallback = urlDateMatch && urlMonth <= new Date().getMonth() + 1
+      ? `${currentYear}-${urlDateMatch[1]}-${urlDateMatch[2]}T00:00:00.000Z`
+      : undefined;
 
-    const parsed = parseArtistTitle(item.title);
-    if (!parsed) {
-      console.log(`Skipping (not a standard review): ${item.title}`);
-      continue;
-    }
-    const { artist, title } = parsed;
-
-    const categories: string[] = Array.isArray(item.categories) ? item.categories : [];
-    const genreCandidates = extractGenresFromCategories(categories);
-
-    let coverImage: string | null = null;
-    let snippet: string | null = null;
-    let detectedGenres: string[] = [];
-
+    let details: ArticleDetails;
     try {
-      const details = await scrapeArticle(item.link);
-      coverImage = details.coverImage;
-      snippet = details.snippet;
-      detectedGenres = detectGenresFromText(details.reviewText);
+      details = await scrapeArticle(url, urlDateFallback);
     } catch {
-      console.log(`Failed to fetch article details for ${artist} - ${title}`);
+      console.log(`Failed to fetch: ${url}`);
+      await new Promise(r => setTimeout(r, 300));
+      continue;
     }
 
-    const allGenres = [...detectedGenres, ...genreCandidates];
+    if (!details.publishedAt || !details.publishedAt.startsWith("2026")) {
+      console.log(`Skipping (not 2026): ${url}`);
+      await new Promise(r => setTimeout(r, 300));
+      continue;
+    }
+
+    if (!details.title) {
+      console.log(`Skipping (no title): ${url}`);
+      await new Promise(r => setTimeout(r, 300));
+      continue;
+    }
+
+    const parsed = parseArtistTitle(details.title);
+    if (!parsed) {
+      console.log(`Skipping (not a standard review): ${details.title}`);
+      await new Promise(r => setTimeout(r, 300));
+      continue;
+    }
+
+    const { artist, title } = parsed;
+    const detectedGenres = detectGenresFromText(details.reviewText);
 
     const release: ReleaseInput = {
       source_id: source.id,
       artist,
       title,
       label: null,
-      genre: allGenres.length > 0 ? normalizeGenre(allGenres.join(", ")) : null,
-      cover_image: coverImage,
-      review_url: item.link,
-      review_snippet: snippet,
-      published_at: publishedAt,
+      genre: detectedGenres.length > 0 ? normalizeGenre(detectedGenres.join(", ")) : null,
+      cover_image: details.coverImage,
+      review_url: url,
+      review_snippet: details.snippet,
+      published_at: details.publishedAt,
     };
 
     const inserted = await insertRelease(release);
