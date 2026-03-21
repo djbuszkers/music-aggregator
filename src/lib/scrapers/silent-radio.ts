@@ -10,6 +10,23 @@ const parser = new Parser({
   },
 });
 
+// Words that should stay lowercase in title case (unless first word)
+const LOWERCASE_WORDS = new Set(["a", "an", "the", "and", "but", "or", "nor", "for", "so", "yet", "at", "by", "in", "of", "on", "to", "as"]);
+
+function toTitleCase(s: string): string {
+  return s
+    .toLowerCase()
+    .split(/(\s+)/)
+    .map((word, i) => {
+      if (/^\s+$/.test(word)) return word;
+      if (i === 0 || !LOWERCASE_WORDS.has(word)) {
+        return word.charAt(0).toUpperCase() + word.slice(1);
+      }
+      return word;
+    })
+    .join("");
+}
+
 // Titles are like:
 //   "ALBUM REVIEW – ARTIST: ALBUM TITLE"
 //   "ALBUM REVIEW: ARTIST – ALBUM TITLE"
@@ -21,19 +38,19 @@ function parseArtistTitle(rawTitle: string): { artist: string; title: string } |
   // Format 1: "ALBUM REVIEW – ARTIST: TITLE"
   const format1 = rawTitle.match(/^album\s+review\s*[–—-]+\s*(.+?):\s*(.+)$/i);
   if (format1) {
-    return { artist: format1[1].trim(), title: format1[2].trim() };
+    return { artist: toTitleCase(format1[1].trim()), title: toTitleCase(format1[2].trim()) };
   }
 
   // Format 2: "ALBUM REVIEW: ARTIST – TITLE"
   const format2 = rawTitle.match(/^album\s+review\s*:\s*(.+?)\s*[–—-]+\s*(.+)$/i);
   if (format2) {
-    return { artist: format2[1].trim(), title: format2[2].trim() };
+    return { artist: toTitleCase(format2[1].trim()), title: toTitleCase(format2[2].trim()) };
   }
 
   // Format 3: "ALBUM REVIEW – ARTIST – TITLE" (both separators are dashes)
   const format3 = rawTitle.match(/^album\s+review\s*[–—-]+\s*(.+?)\s*[–—-]+\s*(.+)$/i);
   if (format3) {
-    return { artist: format3[1].trim(), title: format3[2].trim() };
+    return { artist: toTitleCase(format3[1].trim()), title: toTitleCase(format3[2].trim()) };
   }
 
   return null;
