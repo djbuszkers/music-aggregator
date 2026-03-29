@@ -30,9 +30,10 @@ jobs:
       - name: Run Puppeteer scrapers
         env:
           TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
-          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+          TURSO_AUTH_TOKEN_RAW: ${{ secrets.TURSO_AUTH_TOKEN }}
           DISPLAY: ":99"
         run: |
+          export TURSO_AUTH_TOKEN=$(echo "$TURSO_AUTH_TOKEN_RAW" | tr -d '\n\r ')
           Xvfb :99 -screen 0 1920x1080x24 &
           sleep 1
           npx tsx scripts/scrape-puppeteer.ts
