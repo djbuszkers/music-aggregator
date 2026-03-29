@@ -1,10 +1,8 @@
-import puppeteer from "puppeteer-extra";
-import StealthPlugin from "puppeteer-extra-plugin-stealth";
+// @ts-ignore
+import { connect } from "puppeteer-real-browser";
 import { getSourceByName, insertRelease, updateSourceLastFetched } from "../db";
 import { normalizeGenre } from "../utils";
 import type { ReleaseInput } from "../types";
-
-puppeteer.use(StealthPlugin());
 
 const BASE_URL = "https://boomkat.com";
 
@@ -32,34 +30,20 @@ export async function scrapeBoomkat(): Promise<number> {
 
   console.log("Fetching Boomkat weekly roundup...");
 
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-blink-features=AutomationControlled",
-    ],
+  const { browser, page } = await connect({
+    headless: false,
+    args: [],
+    turnstile: true,
+    disableXvfb: false,
   });
 
   try {
-    const page = await browser.newPage();
-
-    await page.setUserAgent(
-      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    );
-
-    await page.evaluateOnNewDocument(() => {
-      Object.defineProperty(navigator, "webdriver", {
-        get: () => undefined,
-      });
-    });
-
     await page.setViewport({ width: 1920, height: 1080 });
     await page.goto(`${BASE_URL}/weekly-roundup`, {
       waitUntil: "networkidle2",
       timeout: 60000,
     });
-    await new Promise((r) => setTimeout(r, 3000));
+    await new Promise((r) => setTimeout(r, 10000));
 
     // Check if blocked or page not found
     const pageStatus = await page.evaluate(() => {
