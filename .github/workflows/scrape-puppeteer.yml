@@ -1,0 +1,44 @@
+name: Puppeteer Scrapers (Boomkat + RA)
+
+on:
+  schedule:
+    # Every day at 08:30 UTC (30 min after the Vercel cron runs the RSS scrapers)
+    - cron: "30 8 * * *"
+  workflow_dispatch: # Allow manual trigger from GitHub Actions UI
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Xvfb and Chrome dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y xvfb libgbm-dev
+
+      - name: Run Puppeteer scrapers
+        env:
+          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+          DISPLAY: ":99"
+        run: |
+          Xvfb :99 -screen 0 1920x1080x24 &
+          sleep 1
+          npx tsx scripts/scrape-puppeteer.ts
+
+      - name: Trigger streaming match on Vercel
+        run: |
+          curl -s -X POST https://octocrate.vercel.app/api/match \
+            -H "Content-Type: application/json" \
+            --fail-with-body || echo "Match endpoint failed (non-fatal)"
