@@ -33,6 +33,41 @@ function normalizeQuotes(s: string): string {
     .replace(/&/g, "and");
 }
 
+function normalizeForMatch(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function sigWords(s: string): string[] {
+  return normalizeForMatch(s).split(" ").filter(w => w.length > 3 || /^\d+$/.test(w));
+}
+
+function isConfidentMatch(storedArtist: string, storedTitle: string, apiArtist: string, apiTitle: string): boolean {
+  const isVA = /^various/i.test(storedArtist);
+  const artistWords = sigWords(storedArtist);
+  const titleWords = sigWords(storedTitle);
+  const apiArtistNorm = normalizeForMatch(apiArtist);
+  const apiTitleNorm = normalizeForMatch(apiTitle);
+
+  const artistOk = isVA || artistWords.length === 0 || artistWords.some(w => apiArtistNorm.includes(w));
+  const required = Math.max(1, Math.ceil(titleWords.length * 0.5));
+  const titleHits = titleWords.filter(w => apiTitleNorm.includes(w)).length;
+  const titleOk = titleWords.length === 0 || titleHits >= required;
+
+  return artistOk && titleOk;
+}
+
+function pickMatch(items: DeezerAlbum[], storedArtist: string, storedTitle: string): DeezerAlbum | null {
+  for (const item of items) {
+    if (isConfidentMatch(storedArtist, storedTitle, item.artist.name, item.title)) return item;
+  }
+  return null;
+}
+
 export async function searchDeezerAlbum(
   artist: string,
   title: string
@@ -40,19 +75,19 @@ export async function searchDeezerAlbum(
   try {
     const sanitizedArtist = normalizeQuotes(artist);
     const sanitizedTitle = normalizeQuotes(title);
-    // If artist contains &, also try with just the part before it (e.g. "Avalon Emerson & The Charm" → "Avalon Emerson")
-    const shortArtist = sanitizedArtist.includes(" and ")
-      ? sanitizedArtist.split(" and ")[0].trim()
-      : sanitizedArtist;
+    const shortArtist = sanitizedArtist.replace(/\s+and\s+.+$/i, "").trim();
 
     const queries = [
       `artist:"${sanitizedArtist}" album:"${sanitizedTitle}"`,
       `${sanitizedArtist} ${sanitizedTitle}`,
-      ...(shortArtist !== sanitizedArtist ? [`${shortArtist} ${sanitizedTitle}`] : []),
+      ...(shortArtist !== sanitizedArtist ? [
+        `artist:"${shortArtist}" album:"${sanitizedTitle}"`,
+        `${shortArtist} ${sanitizedTitle}`,
+      ] : []),
     ];
 
     for (const query of queries) {
-      const url = `https://api.deezer.com/search/album?q=${encodeURIComponent(query)}`;
+      const url = `https://api.deezer.com/search/album?q=${encodeURIComponent(query)}&limit=5`;
       const response = await fetch(url);
 
       if (!response.ok) {
@@ -61,9 +96,8 @@ export async function searchDeezerAlbum(
       }
 
       const data: DeezerSearchResponse = await response.json();
-
-      if (data.data && data.data.length > 0) {
-        const album = data.data[0];
+      const album = pickMatch(data.data ?? [], artist, title);
+      if (album) {
         return {
           deezerUrl: album.link,
           deezerId: album.id.toString(),

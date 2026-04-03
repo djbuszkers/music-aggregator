@@ -77,43 +77,90 @@ function sanitizeForSearch(s: string): string {
     .replace(/&/g, "and");
 }
 
+function normalizeForMatch(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // strip accents
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Significant words: length > 3, OR a standalone number (important in series titles like "Vol. 2")
+function sigWords(s: string): string[] {
+  return normalizeForMatch(s).split(" ").filter(w => w.length > 3 || /^\d+$/.test(w));
+}
+
+function isConfidentMatch(storedArtist: string, storedTitle: string, apiArtist: string, apiTitle: string): boolean {
+  const isVA = /^various/i.test(storedArtist);
+
+  const artistWords = sigWords(storedArtist);
+  const titleWords = sigWords(storedTitle);
+  const apiArtistNorm = normalizeForMatch(apiArtist);
+  const apiTitleNorm = normalizeForMatch(apiTitle);
+
+  // Artist: at least one significant word from stored artist must appear in API artist
+  const artistOk = isVA || artistWords.length === 0 || artistWords.some(w => apiArtistNorm.includes(w));
+
+  // Title: at least half the significant words (min 1) must appear in API title
+  const required = Math.max(1, Math.ceil(titleWords.length * 0.5));
+  const titleHits = titleWords.filter(w => apiTitleNorm.includes(w)).length;
+  const titleOk = titleWords.length === 0 || titleHits >= required;
+
+  return artistOk && titleOk;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function pickMatch(items: any[], storedArtist: string, storedTitle: string): any | null {
+  for (const item of items) {
+    const apiArtist = item.artists?.map((a: any) => a.name).join(", ") ?? "";
+    const apiTitle = item.name ?? "";
+    if (isConfidentMatch(storedArtist, storedTitle, apiArtist, apiTitle)) return item;
+  }
+  return null;
+}
+
 export async function searchSpotifyAlbum(artist: string, title: string): Promise<SpotifyMatch | null> {
   const token = await getAccessToken();
 
-  const structuredQuery = `artist:${sanitizeForSearch(artist)} album:${sanitizeForSearch(title)}`;
-  const fallbackQuery = `${sanitizeForSearch(artist)} ${sanitizeForSearch(title)}`;
-
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let album: any = null;
-
-  const queries = [structuredQuery, fallbackQuery];
-  for (let i = 0; i < queries.length; i++) {
-    const query = queries[i];
-    const params = new URLSearchParams({ q: query, type: "album", limit: "5" });
+  async function search(q: string): Promise<any[]> {
+    const params = new URLSearchParams({ q, type: "album", limit: "5" });
     const response = await fetch(`https://api.spotify.com/v1/search?${params}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!response.ok) {
       console.error(`Spotify search failed for "${artist} - ${title}": ${response.status}`);
-      return null;
+      return [];
     }
     const data = await response.json();
-    const items: any[] = data.albums?.items ?? [];
-    if (i === 0) {
-      // Structured query: trust the first result
-      album = items[0] ?? null;
-    } else {
-      // Free-text fallback: require at least one word to match exactly
-      // (word-level, not substring) to avoid false positives
-      const queryWords = sanitizeForSearch(`${artist} ${title}`)
-        .toLowerCase().split(/\s+/).filter((w: string) => w.length > 3);
-      album = items.find((item: any) => {
-        const resultWords = `${item.artists?.[0]?.name ?? ""} ${item.name}`
-          .toLowerCase().split(/\s+/);
-        return queryWords.some((w: string) => resultWords.includes(w));
-      }) ?? null;
-    }
-    if (album) break;
+    return data.albums?.items ?? [];
+  }
+
+  const sanitizedArtist = sanitizeForSearch(artist);
+  const sanitizedTitle = sanitizeForSearch(title);
+  // Shortened artist: drop everything after " & " or " and " for collaborative releases
+  const shortArtist = sanitizedArtist.replace(/\s+(&|and)\s+.+$/i, "").trim();
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let album: any = null;
+
+  // 1. Structured query with full artist + title
+  album = pickMatch(await search(`artist:${sanitizedArtist} album:${sanitizedTitle}`), artist, title);
+
+  // 2. Structured with shortened artist (helps when Spotify indexes under lead artist only)
+  if (!album && shortArtist !== sanitizedArtist) {
+    album = pickMatch(await search(`artist:${shortArtist} album:${sanitizedTitle}`), artist, title);
+  }
+
+  // 3. Free-text fallback with full artist + title
+  if (!album) {
+    album = pickMatch(await search(`${sanitizedArtist} ${sanitizedTitle}`), artist, title);
+  }
+
+  // 4. Free-text fallback with shortened artist
+  if (!album && shortArtist !== sanitizedArtist) {
+    album = pickMatch(await search(`${shortArtist} ${sanitizedTitle}`), artist, title);
   }
 
   if (!album) {
