@@ -68,7 +68,7 @@ src/
 │   │   └── [id]/page.tsx     # Individual release page with OG meta tags
 │   └── api/
 │       ├── releases/route.ts # GET releases with pagination/filtering
-│       ├── releases/[id]/route.ts    # GET single release by ID
+│       ├── releases/[id]/route.ts    # GET single release by ID; DELETE to remove a release
 │       ├── releases/[id]/inky-tip/route.ts  # POST toggle INKY TIP status
 │       ├── refresh/route.ts  # POST triggers all scrapers
 │       ├── spotify-match/route.ts  # POST Spotify album match by artist+title
@@ -87,7 +87,7 @@ src/
     ├── youtube.ts            # YouTube Data API client (music video search)
     ├── deezer.ts             # Deezer API client (album search + release type, no auth needed)
     └── scrapers/
-        ├── nowamuzyka.ts     # RSS + Bandcamp data (genres, labels)
+        ├── nowamuzyka.ts     # RSS + Bandcamp data (genres, labels); filters non-album posts by RSS category
         ├── bandcamp.ts       # Cheerio + Bandcamp data (labels)
         ├── ra.ts
         ├── boomkat.ts
@@ -95,6 +95,8 @@ src/
         ├── shatter-the-standards.ts  # Substack archive API + post API for cover images
         ├── djmag.ts              # HTML scraping (albums + genre-filtered EPs)
         └── silent-radio.ts       # Archive page walking + JSON-LD date parsing
+scripts/
+└── delete-release.ts         # One-off manual deletion: npx dotenv-cli -e .env.local -- npx tsx scripts/delete-release.ts <id>
 public/
 ├── octocrate-logo.svg        # OctoCrate logo (tentacle + vinyl, transparent bg)
 ├── manifest.json             # PWA manifest (background_color: #09090b)
@@ -114,7 +116,8 @@ All database functions are **async** and auto-initialize tables on first call.
 **Key functions in db.ts:**
 - `getSources()` / `getSourceByName(name)`
 - `getReleases(sourceId?, limit, offset, genres?, inkyTipsOnly?, releaseType?, searchQuery?)` / `getReleaseById(id)`
-- `insertRelease(release)` - Deduplicates cross-source releases by artist+title (case-insensitive); keeps the release with the longer review_snippet. Backfills missing fields (label, genre, bandcamp data) on existing releases during dedup using COALESCE (never overwrites non-NULL with NULL). Also returns false on same-URL duplicates (UNIQUE constraint on review_url)
+- `insertRelease(release)` - Deduplicates cross-source releases by artist+title (case-insensitive + fuzzy: normalizes Vol./Pt./dashes before comparing); keeps the release with the longer review_snippet. Backfills missing fields (label, genre, bandcamp data) on existing releases during dedup using COALESCE (never overwrites non-NULL with NULL). Also returns false on same-URL duplicates (UNIQUE constraint on review_url)
+- `deleteRelease(id)` - Hard-deletes a release by ID; returns false if not found
 
 ## Deployment
 
@@ -139,8 +142,11 @@ All database functions are **async** and auto-initialize tables on first call.
 - **YouTube Music:** Release cards link to matching YouTube Music videos. Uses YouTube Data API v3 (`youtube.ts`), filtered to music category. Matched data stored in `youtube_url` and `youtube_id` columns.
 - **Bandcamp:** Embedded player on release pages for albums with Bandcamp data. Album IDs extracted during scraping from Nowa Muzyka and Bandcamp Daily sources (`bandcamp.ts`). Data stored in `bandcamp_url` and `bandcamp_album_id` columns. Release cards also show a Bandcamp button linking to the album page.
 - **Deezer:** No authentication required (free public API). Uses `/search/album` endpoint with `artist:"X" album:"Y"` query syntax. Also provides release type inference via `record_type` field from `/album/{id}` endpoint. Matched data stored in `deezer_url` and `deezer_id` columns. API endpoint at `/api/deezer-match` for batch matching.
-- **Search query sanitization:** Spotify and Deezer replace `&` with `and` and normalize curly quotes before forming field-based queries (`artist:` / `album:`). Both also fall back to free-text search when the structured query returns no results. Deezer additionally tries a shortened artist name (dropping everything after `and`) as a third fallback, since streaming services sometimes index albums under a shorter artist name. YouTube uses free-text search only and is unaffected by these issues.
-- **Spotify fallback relevance check:** The free-text fallback requires at least one word (>3 chars) from the query to match exactly in the result's artist+title. This prevents false positives where Spotify returns a completely unrelated album (e.g. album not on Spotify at all). Limit bumped to 5 candidates to check before giving up.
+- **Search query sanitization:** Spotify and Deezer replace `&` with `and` and normalize curly quotes before forming queries. Both support a shortened artist name fallback (dropping everything after `&` or `and`) for collaborative releases indexed under the lead artist only.
+- **Match confidence (all services):** All three services use an `isConfidentMatch` relevance check before accepting any result. Significant words (length > 3, or standalone numbers like "2") from the stored artist and title must appear in the API result — artist: at least one word must match; title: at least half the significant words must match. `Various`-artist releases skip the artist check. This prevents false positives across all query types, not just free-text fallbacks.
+- **Spotify query cascade:** 4 steps — (1) structured `artist:/album:` with full artist, (2) structured with shortened artist, (3) free-text with full artist, (4) free-text with shortened artist. Each step checked with `isConfidentMatch`; stops at first confident hit.
+- **Deezer query cascade:** Same 4-step pattern as Spotify. Limit set to 5 candidates per query.
+- **YouTube match:** Fetches up to 5 candidates; picks the first where the stored artist name appears in the video title or channel title. Artist check is skipped for Various-artist releases.
 - **Spotify artist genres deprecated:** The `/artists/{id}` endpoint no longer returns `genres` or `popularity` fields — only `id`, `name`, `images`, `external_urls`, `href`, `type`, `uri`. Do not attempt artist-level genre lookup via Spotify.
 
 ### Individual Release Pages
@@ -190,6 +196,13 @@ curl -X POST http://localhost:3000/api/deezer-match
 npx dotenv-cli -e .env.local -- npx tsx scripts/match-youtube.ts
 ```
 
+**Delete a release manually:**
+```bash
+npx dotenv-cli -e .env.local -- npx tsx scripts/delete-release.ts <id>
+# Or via API once deployed:
+curl -X DELETE https://octocrate.vercel.app/api/releases/<id>
+```
+
 **Debug scraper issues:**
 - Check terminal logs during `npm run dev`
 - Scrapers log skipped items (not 2026) and added items
@@ -210,6 +223,10 @@ npx dotenv-cli -e .env.local -- npx tsx scripts/match-youtube.ts
 - Requires Puppeteer; walks `/weekly-roundup` page and then visits each product page for date, genre, description
 - Product card lines: line 0 = artist, line 1 = title, line 2 = label, line 3+ = genre
 - Format descriptor lines (GATEFOLD, `2 X 12"`, VINYL, LP, CD, etc.) are filtered from the lines array before parsing and also checked in artist validation — these appeared as corrupt artist names in early versions
+
+**Nowa Muzyka scraper notes:**
+- RSS items include a `categories` array; items tagged with `Newsy`, `Festiwale`, `Koncerty`, `Trasy`, or `Wywiady` are skipped — these are concert announcements, festival news, and interviews, not album reviews
+- Title parsing falls back to `artist: "Various"` when no separator (`-`, `–`, `—`, `:`) is found
 
 **Test database connection:**
 ```bash
