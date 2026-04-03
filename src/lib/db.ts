@@ -293,15 +293,35 @@ export async function getDistinctGenres(): Promise<string[]> {
   return ordered.filter(cat => categorySet.has(cat));
 }
 
+function normalizeForDedup(str: string): string {
+  return str
+    .toLowerCase()
+    .trim()
+    .replace(/\bvol\.\s*/gi, "volume ")
+    .replace(/\bpt\.\s*/gi, "part ")
+    .replace(/\bno\.\s*/gi, "number ")
+    .replace(/[–—―]/g, "-")   // en-dash, em-dash → hyphen
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export async function insertRelease(release: ReleaseInput): Promise<boolean> {
   await ensureInitialized();
   const database = getDb();
 
   // Check for cross-source duplicate (same artist + title, case-insensitive)
-  const existing = await database.execute({
-    sql: `SELECT id, review_snippet, label, genre FROM releases WHERE LOWER(TRIM(artist)) = LOWER(TRIM(?)) AND LOWER(TRIM(title)) = LOWER(TRIM(?))`,
-    args: [release.artist, release.title],
+  // Fetch all releases by artist, then normalize titles for comparison to catch
+  // minor variations like "Vol. 1" vs "Volume 1" or hyphen vs en-dash.
+  const byArtist = await database.execute({
+    sql: `SELECT id, review_snippet, label, genre, title FROM releases WHERE LOWER(TRIM(artist)) = LOWER(TRIM(?))`,
+    args: [release.artist],
   });
+
+  const normalizedIncoming = normalizeForDedup(release.title);
+  const existingRow = byArtist.rows.find(
+    (row) => normalizeForDedup(row.title as string) === normalizedIncoming
+  );
+  const existing = existingRow ? { rows: [existingRow] } : { rows: [] };
 
   if (existing.rows.length > 0) {
     const existingSnippet = (existing.rows[0].review_snippet as string) ?? "";
@@ -552,6 +572,16 @@ export async function getReleaseById(id: number): Promise<(Release & { source_ur
     args: [id],
   });
   return (result.rows[0] as unknown as (Release & { source_url?: string })) ?? null;
+}
+
+export async function deleteRelease(id: number): Promise<boolean> {
+  await ensureInitialized();
+  const database = getDb();
+  const result = await database.execute({
+    sql: `DELETE FROM releases WHERE id = ?`,
+    args: [id],
+  });
+  return (result.rowsAffected ?? 0) > 0;
 }
 
 export async function getLastUpdated(): Promise<string | null> {

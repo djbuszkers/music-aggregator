@@ -117,6 +117,9 @@ function isNonGenreTag(tag: string): boolean {
   return nonGenreTags.includes(tagLower);
 }
 
+// Nowa Muzyka post categories that indicate non-album content (concerts, news, festivals)
+const NON_ALBUM_CATEGORIES = ["Newsy", "Festiwale", "Koncerty", "Trasy", "Wywiady"];
+
 interface RSSItem {
   title?: string;
   link?: string;
@@ -124,6 +127,7 @@ interface RSSItem {
   "content:encoded"?: string;
   content?: string;
   enclosure?: { url?: string };
+  categories?: string[];
 }
 
 function extractCoverImage(content: string): string | null {
@@ -188,6 +192,12 @@ export async function scrapeNowaMuzyka(): Promise<number> {
     // Only include 2026 items
     if (!publishedAt.startsWith("2026")) {
       console.log(`Skipping (not 2026): ${item.title} (${publishedAt.substring(0, 10)})`);
+      continue;
+    }
+
+    // Skip non-album posts (concerts, festivals, news, interviews)
+    if (item.categories?.some(cat => NON_ALBUM_CATEGORIES.includes(cat))) {
+      console.log(`Skipping (non-album category): ${item.title}`);
       continue;
     }
 
