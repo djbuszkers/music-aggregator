@@ -13,6 +13,9 @@ const nextConfig = {
       "puppeteer",
       "puppeteer-extra",
       "puppeteer-extra-plugin-stealth",
+      "puppeteer-real-browser",
+      "xvfb",
+      "sleep",
     ],
   },
 };
