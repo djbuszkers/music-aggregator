@@ -10,27 +10,27 @@ export async function GET(request: NextRequest) {
     const pageParam = searchParams.get("page");
     const genresParam = searchParams.get("genres");
 
-    let sourceId: number | undefined;
     const allSources = await getSources();
 
+    let sourceIds: number[] | undefined;
     if (sourceParam) {
-      const source = allSources.find(
-        (s) => s.name.toLowerCase() === sourceParam.toLowerCase()
-      );
-      if (source) {
-        sourceId = source.id;
-      }
+      const names = sourceParam.split(",").map((s) => s.trim().toLowerCase());
+      const ids = names
+        .map((name) => allSources.find((s) => s.name.toLowerCase() === name)?.id)
+        .filter((id): id is number => id !== undefined);
+      if (ids.length > 0) sourceIds = ids;
     }
 
     const page = pageParam ? Math.max(1, parseInt(pageParam, 10)) : 1;
     const offset = (page - 1) * PAGE_SIZE;
     const genreFilter = genresParam ? genresParam.split(",").filter(Boolean) : undefined;
     const inkyTipsOnly = searchParams.get("inky_tips_only") === "true";
-    const releaseType = searchParams.get("release_type") || undefined;
+    const releaseTypeParam = searchParams.get("release_type");
+    const releaseTypes = releaseTypeParam ? releaseTypeParam.split(",").filter(Boolean) : undefined;
     const searchQuery = searchParams.get("q") || undefined;
 
-    const releases = await getReleases(sourceId, PAGE_SIZE, offset, genreFilter, inkyTipsOnly, releaseType, searchQuery);
-    const totalCount = await getTotalReleases(sourceId, genreFilter, inkyTipsOnly, releaseType, searchQuery);
+    const releases = await getReleases(sourceIds, PAGE_SIZE, offset, genreFilter, inkyTipsOnly, releaseTypes, searchQuery);
+    const totalCount = await getTotalReleases(sourceIds, genreFilter, inkyTipsOnly, releaseTypes, searchQuery);
     const totalPages = Math.ceil(totalCount / PAGE_SIZE);
     const lastUpdated = await getLastUpdated();
     const genres = await getDistinctGenres();

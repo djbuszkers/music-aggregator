@@ -29,9 +29,9 @@ export default function Home() {
   const [genres, setGenres] = useState<string[]>([]);
   const [sources, setSources] = useState<string[]>([]);
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
-  const [selectedSource, setSelectedSource] = useState<string | null>(null);
+  const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [inkyTipsOnly, setInkyTipsOnly] = useState(false);
-  const [selectedReleaseType, setSelectedReleaseType] = useState<string | null>(null);
+  const [selectedReleaseTypes, setSelectedReleaseTypes] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
 
@@ -40,7 +40,7 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const fetchReleases = useCallback(async (page: number = 1, genres_filter: string[] = [], inkyTips: boolean = false, releaseType: string | null = null, query: string = "", source: string | null = null) => {
+  const fetchReleases = useCallback(async (page: number = 1, genres_filter: string[] = [], inkyTips: boolean = false, releaseTypes: string[] = [], query: string = "", sources: string[] = []) => {
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
@@ -51,14 +51,14 @@ export default function Home() {
       if (inkyTips) {
         params.set("inky_tips_only", "true");
       }
-      if (releaseType) {
-        params.set("release_type", releaseType);
+      if (releaseTypes.length > 0) {
+        params.set("release_type", releaseTypes.join(","));
       }
       if (query) {
         params.set("q", query);
       }
-      if (source) {
-        params.set("source", source);
+      if (sources.length > 0) {
+        params.set("source", sources.join(","));
       }
 
       const response = await fetch(`/api/releases?${params}`);
@@ -77,11 +77,11 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    fetchReleases(1, selectedGenres, inkyTipsOnly, selectedReleaseType, debouncedQuery, selectedSource);
-  }, [fetchReleases, selectedGenres, inkyTipsOnly, selectedReleaseType, debouncedQuery, selectedSource]);
+    fetchReleases(1, selectedGenres, inkyTipsOnly, selectedReleaseTypes, debouncedQuery, selectedSources);
+  }, [fetchReleases, selectedGenres, inkyTipsOnly, selectedReleaseTypes, debouncedQuery, selectedSources]);
 
   const handlePageChange = (page: number) => {
-    fetchReleases(page, selectedGenres, inkyTipsOnly, selectedReleaseType, debouncedQuery, selectedSource);
+    fetchReleases(page, selectedGenres, inkyTipsOnly, selectedReleaseTypes, debouncedQuery, selectedSources);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -94,21 +94,25 @@ export default function Home() {
 
   const handleClearGenres = () => {
     setSelectedGenres([]);
-    setSelectedSource(null);
+    setSelectedSources([]);
     setInkyTipsOnly(false);
-    setSelectedReleaseType(null);
+    setSelectedReleaseTypes([]);
     setSearchQuery("");
     setDebouncedQuery("");
     setCurrentPage(1);
   };
 
   const handleSourceToggle = (source: string) => {
-    setSelectedSource((prev) => prev === source ? null : source);
+    setSelectedSources((prev) =>
+      prev.includes(source) ? prev.filter((s) => s !== source) : [...prev, source]
+    );
     setCurrentPage(1);
   };
 
   const handleReleaseTypeToggle = (type: string) => {
-    setSelectedReleaseType((prev) => prev === type ? null : type);
+    setSelectedReleaseTypes((prev) =>
+      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
+    );
     setCurrentPage(1);
   };
 
@@ -144,7 +148,7 @@ export default function Home() {
             <button
               onClick={handleClearGenres}
               className={`px-3 py-1.5 sm:px-2.5 sm:py-1 text-xs rounded-full transition-colors whitespace-nowrap flex-shrink-0 ${
-                selectedGenres.length === 0 && !selectedSource && !inkyTipsOnly && !selectedReleaseType
+                selectedGenres.length === 0 && selectedSources.length === 0 && !inkyTipsOnly && selectedReleaseTypes.length === 0
                   ? "bg-white text-black font-medium"
                   : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
               }`}
@@ -167,7 +171,7 @@ export default function Home() {
                 key={type}
                 onClick={() => handleReleaseTypeToggle(type)}
                 className={`px-3 py-1.5 sm:px-2.5 sm:py-1 text-xs rounded-full transition-colors whitespace-nowrap flex-shrink-0 ${
-                  selectedReleaseType === type
+                  selectedReleaseTypes.includes(type)
                     ? type === "Single" ? "bg-blue-950 text-blue-300 font-medium" :
                       type === "EP" ? "bg-amber-950 text-amber-300 font-medium" :
                       "bg-green-950 text-green-300 font-medium"
@@ -186,7 +190,7 @@ export default function Home() {
                   key={source}
                   onClick={() => handleSourceToggle(source)}
                   className={`px-3 py-1.5 sm:px-2.5 sm:py-1 text-xs rounded-full transition-colors whitespace-nowrap flex-shrink-0 ${
-                    selectedSource === source
+                    selectedSources.includes(source)
                       ? "bg-white text-black font-medium"
                       : "bg-zinc-800/60 text-zinc-500 hover:bg-zinc-700 hover:text-zinc-300"
                   }`}

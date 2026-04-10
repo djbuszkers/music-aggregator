@@ -174,7 +174,7 @@ export async function updateSourceLastFetched(sourceId: number): Promise<void> {
   });
 }
 
-export async function getReleases(sourceId?: number, limit = 15, offset = 0, genres?: string[], inkyTipsOnly?: boolean, releaseType?: string, searchQuery?: string): Promise<Release[]> {
+export async function getReleases(sourceIds?: number[], limit = 15, offset = 0, genres?: string[], inkyTipsOnly?: boolean, releaseTypes?: string[], searchQuery?: string): Promise<Release[]> {
   await ensureInitialized();
   const database = getDb();
   let query = `
@@ -185,9 +185,9 @@ export async function getReleases(sourceId?: number, limit = 15, offset = 0, gen
   `;
   const args: (number | string)[] = [];
 
-  if (sourceId) {
-    query += " AND r.source_id = ?";
-    args.push(sourceId);
+  if (sourceIds && sourceIds.length > 0) {
+    query += ` AND r.source_id IN (${sourceIds.map(() => "?").join(",")})`;
+    args.push(...sourceIds);
   }
 
   if (genres && genres.length > 0) {
@@ -208,9 +208,9 @@ export async function getReleases(sourceId?: number, limit = 15, offset = 0, gen
     query += " AND r.is_inky_tip = 1";
   }
 
-  if (releaseType) {
-    query += " AND r.release_type = ?";
-    args.push(releaseType);
+  if (releaseTypes && releaseTypes.length > 0) {
+    query += ` AND r.release_type IN (${releaseTypes.map(() => "?").join(",")})`;
+    args.push(...releaseTypes);
   }
 
   if (searchQuery) {
@@ -225,7 +225,7 @@ export async function getReleases(sourceId?: number, limit = 15, offset = 0, gen
   return result.rows as unknown as Release[];
 }
 
-export async function getTotalReleases(sourceId?: number, genres?: string[], inkyTipsOnly?: boolean, releaseType?: string, searchQuery?: string): Promise<number> {
+export async function getTotalReleases(sourceIds?: number[], genres?: string[], inkyTipsOnly?: boolean, releaseTypes?: string[], searchQuery?: string): Promise<number> {
   await ensureInitialized();
   const database = getDb();
   let query = `
@@ -235,9 +235,9 @@ export async function getTotalReleases(sourceId?: number, genres?: string[], ink
   `;
   const args: (number | string)[] = [];
 
-  if (sourceId) {
-    query += " AND r.source_id = ?";
-    args.push(sourceId);
+  if (sourceIds && sourceIds.length > 0) {
+    query += ` AND r.source_id IN (${sourceIds.map(() => "?").join(",")})`;
+    args.push(...sourceIds);
   }
 
   if (genres && genres.length > 0) {
@@ -257,9 +257,9 @@ export async function getTotalReleases(sourceId?: number, genres?: string[], ink
     query += " AND r.is_inky_tip = 1";
   }
 
-  if (releaseType) {
-    query += " AND r.release_type = ?";
-    args.push(releaseType);
+  if (releaseTypes && releaseTypes.length > 0) {
+    query += ` AND r.release_type IN (${releaseTypes.map(() => "?").join(",")})`;
+    args.push(...releaseTypes);
   }
 
   if (searchQuery) {
